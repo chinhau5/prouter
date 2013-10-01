@@ -5,6 +5,15 @@
  *      Author: chinhau5
  */
 
+enum { BLOCK_INPUT, BLOCK_OUTPUT } e_block_pin_type;
+
+enum { TOP, RIGHT, BOTTOM, LEFT, SIDE_END } e_side;
+
+enum { CLB, X_CHANNEL, Y_CHANNEL, SWITCH_BOX } e_block_type;
+
+enum { INC_DIRECTION, DEC_DIRECTION } e_track_direction;
+
+
 typedef struct _cluster_info {
 	int num_luts;
 	int num_inputs;
@@ -13,15 +22,16 @@ typedef struct _cluster_info {
 
 typedef struct _track_info {
 	int length;
+	float *frac;
 	int *fs;
 	//int **
 	int num_outputs;
-} t_track_info;
+} s_track_info;
 
-typedef struct _rr_node {
-	int num_children;
-	struct _rr_node **children;
-} s_rr_node;
+typedef struct _s_segment_info {
+	int start;
+	e_track_direction direction;
+} s_segment_info;
 
 typedef struct _list {
 	void *data;
@@ -29,20 +39,29 @@ typedef struct _list {
 	struct _list *prev;
 } s_list;
 
-enum { BLOCK_INPUT, BLOCK_OUTPUT } e_block_pin_type;
+typedef struct _rr_node {
+	s_list *children;
+} s_rr_node;
 
-enum { TOP, RIGHT, BOTTOM, LEFT, SIDE_END } e_side;
 
-enum { CLB, X_CHANNEL, Y_CHANNEL, SWITCH_BOX } e_block_type;
+
+//enum
 
 typedef struct _s_block_pin {
 	e_block_pin_type type;
+	struct _s_block *block;
+	int side;
+	int index;
 	s_list *fanout;
+	s_list *switch_type;
 } s_block_pin;
 
 typedef struct _s_block {
 	e_block_type type;
+	int x;
+	int y;
 	s_block_pin *pins[4]; /* [side][pin] */
+	int num_pins[4];
 } s_block;
 
 s_list *alloc_list_node()
@@ -52,6 +71,16 @@ s_list *alloc_list_node()
 	list->next = NULL;
 	list->prev = NULL;
 	return list;
+}
+
+s_list *create_list(void *data)
+{
+	s_list *node;
+
+	node = alloc_list_node();
+	node->data = data;
+
+	return node;
 }
 
 void insert_into_list(s_list *list, void *data)
@@ -87,13 +116,215 @@ void setup_block_connection(s_block *from_block, s_block *to_block, s_list ***lo
 	}
 }
 
-/* need to consider pass-throughs for long tracks */
-void setup_disjoint_switch_box_internal_connection(int num_track)
+void get_starting_tracks(s_block **grid, int x, int y, int side, int *track_start, int num_tracks, int *starting_tracks)
 {
 	int itrack;
-	int *starting_track[4];
+	assert(grid[x][y].type == SWITCH_BOX);
+	for (itrack = 0; itrack <  num_tracks; itrack++) {
+		track_start[itrack] grid[x][y].pin[]
+	}
+}
 
-	get_starting_track()
+void load_track_start(s_track_info *track_info, int num_track_types, int *num_tracks, int *track_start)
+{
+	int itype;
+	int *
+	for (itype = 0; itype < num_track_types; itype++) {
+		num_tracks
+	}
+}
+
+/* need to consider pass-throughs for long tracks */
+void setup_disjoint_switch_box_internal_connection(s_block **grid, int x, int y, int num_track)
+{
+	int itrack, iside;
+	int *starting_tracks[4];
+	char is_core;
+
+	assert(grid[x][y].type == SWITCH_BOX);
+
+	is_core = (x >= 3 && y >= 3);
+
+	for (iside = 0; iside < SIDE_END; iside++) {
+
+	}
+
+
+
+	get_starting_tracks();
+}
+
+void create_channels(s_block **grid, int nx, int ny, s_segment_info *seg_info, int num_tracks)
+{
+	int x, y;
+	int itrack;
+
+	/* x channels */
+	for (x = 1; x < nx; x += 2) {
+		for (y = 1; y < ny; y += 2) {
+			grid[x][y].pins[LEFT] = malloc(num_tracks*sizeof(s_block_pin));
+			grid[x][y].pins[RIGHT] = malloc(num_tracks*sizeof(s_block_pin));
+			grid[x][y].pins[TOP] = NULL;
+			grid[x][y].pins[BOTTOM] = NULL;
+
+			for (itrack = 0; itrack < num_tracks; itrack++) {
+				grid[x][y].type = X_CHANNEL;
+				if (seg_info[itrack].direction == INC_DIRECTION) {
+					grid[x][y].pins[LEFT][itrack].type = BLOCK_INPUT;
+					grid[x][y].pins[LEFT][itrack].fanout = alloc_list_node();
+					insert_into_list(grid[x][y].pins[LEFT][itrack].fanout, &grid[x][y].pins[RIGHT][itrack]);
+
+					grid[x][y].pins[RIGHT][itrack].type = BLOCK_OUTPUT;
+				} else {
+					assert(seg_info[itrack].direction == DEC_DIRECTION);
+					grid[x][y].pins[RIGHT][itrack].type = BLOCK_INPUT;
+					grid[x][y].pins[RIGHT][itrack].fanout = alloc_list_node();
+					insert_into_list(grid[x][y].pins[RIGHT][itrack].fanout, &grid[x][y].pins[LEFT][itrack]);
+
+					grid[x][y].pins[LEFT][itrack].type = BLOCK_OUTPUT;
+				}
+			}
+		}
+	}
+
+	/* y channels */
+	for (x = 1; x < nx; x += 2) {
+		for (y = 1; y < ny; y += 2) {
+			grid[x][y].pins[TOP] = malloc(num_tracks*sizeof(s_block_pin));
+			grid[x][y].pins[BOTTOM] = malloc(num_tracks*sizeof(s_block_pin));
+			grid[x][y].pins[LEFT] = NULL;
+			grid[x][y].pins[RIGHT] = NULL;
+
+			for (itrack = 0; itrack < num_tracks; itrack++) {
+				grid[x][y].type = Y_CHANNEL;
+				if (seg_info[itrack].direction == INC_DIRECTION) {
+					grid[x][y].pins[BOTTOM][itrack].type = BLOCK_INPUT;
+					grid[x][y].pins[BOTTOM][itrack].fanout = alloc_list_node();
+					insert_into_list(grid[x][y].pins[BOTTOM][itrack].fanout, &grid[x][y].pins[TOP][itrack]);
+
+					grid[x][y].pins[TOP][itrack].type = BLOCK_OUTPUT;
+				} else {
+					assert(seg_info[itrack].direction == DEC_DIRECTION);
+					grid[x][y].pins[TOP][itrack].type = BLOCK_INPUT;
+					grid[x][y].pins[TOP][itrack].fanout = alloc_list_node();
+					insert_into_list(grid[x][y].pins[TOP][itrack].fanout, &grid[x][y].pins[BOTTOM][itrack]);
+
+					grid[x][y].pins[BOTTOM][itrack].type = BLOCK_OUTPUT;
+				}
+			}
+		}
+	}
+}
+
+void create_switch_boxes(s_block **grid, int nx, int ny)
+{
+	int x, y;
+
+	for (x = 1; x < nx; x += 2) {
+		for (y = 1; y < ny; y += 2) {
+			setup_disjoint_switch_box_internal_connection(grid, x, y)
+		}
+	}
+}
+
+void connect_channels_and_switch_boxes()
+{
+
+}
+
+/* CLB OPIN -> CHAN IPIN -> CHAN OPIN -> SB IPIN -> SB OPIN -> CHAN IPIN -> CHAN OPIN -> CLB IPIN */
+void build_rr_from_source(s_block_pin *pin)
+{
+	s_list *current_fanout;
+	s_block_pin *current_pin;
+	s_rr_node *rr_node;
+	switch (pin->block->type) {
+	case CLB:
+		current_fanout = pin->fanout;
+		while (current_fanout) {
+			current_pin = current_fanout->data;
+			assert(current_pin->block->type == X_CHANNEL || current_pin->block->type == Y_CHANNEL);
+
+
+
+			/* find existing rr_node, if not found, alloc node */
+			rr_node = find_rr_node();
+			if (rr_node == NULL) {
+				rr_node = alloc_rr_node();
+			}
+
+			if (rr_node->children) {
+				insert_into_list(rr_node->children, data);
+			} else {
+				rr_node->children = create_list(data);
+			}
+
+			build_rr_from_source(current_pin);
+			current_fanout = current_fanout->next;
+		}
+		break;
+	case SWITCH_BOX:
+		current_fanout = pin->fanout;
+		while (current_fanout) {
+			current_pin = current_fanout->data;
+
+			if (current_pin->block->type == X_CHANNEL || current_pin->block->type == Y_CHANNEL) {
+				/* check whether the chanx or chany rr node exists */
+				/* connect current
+			}
+
+			/* find existing rr_node, if not found, alloc node */
+			rr_node = find_rr_node();
+			if (rr_node == NULL) {
+				rr_node = alloc_rr_node();
+			}
+
+			if (rr_node->children) {
+				insert_into_list(rr_node->children, data);
+			} else {
+				rr_node->children = create_list(data);
+			}
+
+			build_rr_from_source(current_pin);
+			current_fanout = current_fanout->next;
+		}
+	case X_CHANNEL:
+	case Y_CHANNEL:
+	default:
+		printf("Unexpected block type");
+		break
+	}
+}
+
+void build_actual_rr(s_block **grid, int nx, int ny)
+{
+	int x, y;
+	int side;
+	int pin;
+
+	for (x = 0; x < nx; x++) {
+		for (y = 0; y < ny; y++) {
+			if (grid[x][y].type == CLB) {
+				for (side = 0; side < SIDE_END; side++) {
+					for (pin = 0; pin < grid[x][y].num_pins[side]; pin++) {
+						if (grid[x][y].pins[side][pin].type == BLOCK_OUTPUT) {
+							build_rr_from_source(&grid[x][y].pins[side][pin]);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void build_main()
+{
+	s_grid **grid;
+	alloc_grid(&grid
+	create_channels(grid, nx, ny);
+	create_clbs(grid, nx, ny);
+	connect_channels_and_switch_boxes();
+	connect_clbs_and_switch_boxes()
 }
 
 void load_channel_lookup(s_block)
@@ -131,9 +362,12 @@ void add_track_to_lookup()
 	tile_track_rr_node[x][y][track] = rr_node;
 }
 
-t_rr_node *alloc_rr_node()
+s_rr_node *alloc_rr_node()
 {
-	malloc(sizeof)
+	s_rr_node *node;
+	node = malloc(sizeof(s_rr_node));
+	node->children = NULL;
+	return node;
 }
 
 void free_rr_node_array(t_rr_node **array, int array_size)
