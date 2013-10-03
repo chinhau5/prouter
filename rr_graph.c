@@ -9,22 +9,24 @@
 #include <assert.h>
 
 
-typedef enum { BLOCK_INPUT, BLOCK_OUTPUT } e_block_pin_type;
+typedef enum e_block_pin_type { BLOCK_INPUT, BLOCK_OUTPUT } e_block_pin_type;
 
-typedef enum { TOP, RIGHT, BOTTOM, LEFT, SIDE_END } e_side;
+typedef enum e_side { TOP, RIGHT, BOTTOM, LEFT, SIDE_END } e_side;
 
-typedef enum { CLB, X_CHANNEL, Y_CHANNEL, SWITCH_BOX } e_block_type;
+typedef enum e_block_type { CLB, X_CHANNEL, Y_CHANNEL, SWITCH_BOX } e_block_type;
 
-typedef enum { INC_DIRECTION, DEC_DIRECTION } e_track_direction;
+typedef enum e_track_direction { INC_DIRECTION, DEC_DIRECTION } e_track_direction;
+
+typedef enum e_rr_type { CHANX, CHANY } e_rr_type;
 
 
-typedef struct _cluster_info {
+typedef struct cluster_info {
 	int num_luts;
 	int num_inputs;
 	int num_outputs;
 } t_cluster_info;
 
-typedef struct _track_info {
+typedef struct track_info {
 	int length;
 	int freq;
 	int *fs;
@@ -32,19 +34,27 @@ typedef struct _track_info {
 	int num_outputs;
 } s_track_info;
 
-typedef struct _s_track_instance {
+typedef struct s_track_instance {
 	int start;
 	int length;
 	e_track_direction direction;
 } s_track_instance;
 
-typedef struct _list {
+typedef struct s_list {
 	void *data;
 	struct _list *next;
 	struct _list *prev;
 } s_list;
 
-typedef struct _rr_node {
+typedef struct s_rr_node {
+	e_rr_type type;
+	e_track_direction direction;
+	int xlow;
+	int xhigh;
+	int ylow;
+	int yhigh;
+	int index;
+	int ptc_number;
 	s_list *children;
 } s_rr_node;
 
@@ -121,27 +131,39 @@ typedef struct _s_block {
 //	}
 //}
 
-int get_segment_start(s_track_instance *track_instance, int channel, int track, int segment, int seg_max)
+int get_segment_start(s_track_instance *track_instance, int channel, int track, int segment)
 {
 	int seg_start;
 
-	if (track_instance[track].direction == INC_DIRECTION) {
-		if (segment < track_instance[track].start) {
-			seg_start = 2;
-		} else {
-			seg_start = (segment - track_instance[track].start) / track_instance[track].length;
-			seg_start = track_instance[track].start + (seg_start) * track_instance[track].length;
-		}
-	} else {
-		if (segment < track_instance[track].start) {
-			seg_start = segment;
-		} else {
-			seg_start = (segment - track_instance[track].start) / track_instance[track].length;
-			seg_start = track_instance[track].start + seg_start * track_instance[track].length;
-		}
+	seg_start = segment - (segment + track_instance[track].length - (track_instance[track].start - channel)) % track_instance[track].length;
+	if (seg_start < 2) {
+		seg_start = 2;
 	}
 
 	return seg_start;
+}
+
+int get_segment_end(s_track_instance *track_instance, int channel, int track, int segment, int seg_start, int seg_max)
+{
+	int seg_end;
+	int first_full;
+
+	seg_end = seg_start + track_instance[track].length - 2;
+
+	if (seg_start == 2) {
+		first_full = 2 + (track_instance[track].start + track_instance[track].length - 2 - (channel % track_instance[track].length)) % track_instance[track].length;
+		if(first_full > 2)
+		{
+			/* then we stop just before the first full seg */
+			seg_end = first_full - 2;
+		}
+	}
+
+	if (seg_end > seg_max) {
+		seg_end = seg_max;
+	}
+
+	return seg_end;
 }
 
 int *get_starting_tracks(int channel, int segment, e_track_direction direction, s_track_instance *track_instances, int num_tracks, int *num_starting_tracks)
@@ -154,14 +176,14 @@ int *get_starting_tracks(int channel, int segment, e_track_direction direction, 
 	*num_starting_tracks = 0;
 
 	for (itrack = 0; itrack < num_tracks; itrack++) {
-		if (track_instances[itrack].direction == direction && segment == get_segment_start(track_instances, channel, itrack, segment, 100)) {
+		if (track_instances[itrack].direction == direction && segment == get_segment_start(track_instances, channel, itrack, segment)) {
 			(*num_starting_tracks)++;
 		}
 	}
 	starting_tracks = malloc(*num_starting_tracks * sizeof(int));
 	*num_starting_tracks = 0;
 	for (itrack = 0; itrack < num_tracks; itrack++) {
-		if (track_instances[itrack].direction == direction && segment == get_segment_start(track_instances, channel, itrack, segment, 100)) {
+		if (track_instances[itrack].direction == direction && segment == get_segment_start(track_instances, channel, itrack, segment)) {
 			starting_tracks[(*num_starting_tracks)++] = itrack;
 		}
 	}
@@ -361,20 +383,120 @@ int *get_starting_tracks(int channel, int segment, e_track_direction direction, 
 //	}
 //}
 //
-//void build_channel(int channel, int segment)
-//{
-//	for all starting tracks {
-//		alloc_rr_node();
+
+/* lookup[x][y][rr_type][ptc_number] */
+s_rr_node *****alloc_rr_node_lookup(int nx, int ny)
+{
+	int x;
+	s_rr_node *****lookup;
+
+	lookup = malloc(sizeof(void *) * nx);
+	for (x = 0; x < nx; x++) {
+		lookup[x] = malloc(sizeof(void *) * ny);
+	}
+
+	return lookup;
+}
+
+void add_rr_node_to_lookup(s_rr_node *node, s_rr_node *****rr_node_lookup)
+{
+	switch (node->type) {
+	case CHANX:
+		assert (node->ylow == node->yhigh);
+
+		if (node->direction == INC_DIRECTION) {
+			rr_node_lookup[node->xlow][node->ylow][node->type][node->ptc_number] = node;
+		} else {
+			rr_node_lookup[node->xhigh][node->ylow][node->type][node->ptc_number] = node;
+		}
+
+		break;
+	case CHANY:
+		assert (node->xlow == node->xhigh);
+
+		if (node->direction == INC_DIRECTION) {
+			rr_node_lookup[node->xlow][node->ylow][node->type][node->ptc_number] = node;
+		} else {
+			rr_node_lookup[node->xlow][node->yhigh][node->type][node->ptc_number] = node;
+		}
+
+		break;
+	default:
+		break;
+	}
+
+}
+
+s_rr_node *alloc_rr_node()
+{
+	s_rr_node *node;
+	node = malloc(sizeof(s_rr_node));
+	node->children = NULL;
+	return node;
+}
+
+void build_channel(int channel, int segment, char is_horizontal, int nx, int ny, s_track_instance *track_instances, int num_tracks, s_rr_node *****rr_node_lookup)
+{
+	int num_starting_tracks;
+	int *starting_tracks;
+	int i;
+	int track;
+	int direction;
+	s_rr_node *node;
+
+	for (direction = 0; direction < 2; direction++) {
+		starting_tracks = get_starting_tracks(channel, segment, direction, track_instances, num_tracks, &num_starting_tracks);
+
+		for (i = 0; i < num_starting_tracks; i++) {
+			node = alloc_rr_node();
+			track = starting_tracks[i];
+			node->ptc_number = track;
+
+			assert(track_instances[track].direction == direction);
+			node->direction = track_instances[track].direction;
+
+			if (is_horizontal) {
+				node->type = CHANX;
+				node->xlow = get_segment_start(track_instances, channel, track, segment);
+				node->xhigh = get_segment_end(track_instances, channel, track, segment, node->xlow, nx-1);
+				node->ylow = node->yhigh = channel;
+			} else {
+				node->type = CHANY;
+				node->ylow = get_segment_start(track_instances, channel, track, segment);
+				node->yhigh = get_segment_end(track_instances, channel, track, segment, node->ylow, ny-1);
+				node->xlow = node->xhigh = channel;
+			}
+
+			add_rr_node_to_lookup(node, rr_node_lookup);
+		}
+	}
+
+}
 //
-//		add rr node to global array for lookup
-//	}
-//}
 //
-//
-//void build_channels()
-//{
-//	for all channel
-//}
+void build_channels()
+{
+	//for
+}
+
+s_rr_node *get_rr_node(int x, int y, e_rr_type type, int ptc_number, s_rr_node *****rr_node_lookup)
+{
+	return rr_node_lookup[x][y][type][ptc_number];
+}
+
+void connect_channel(int channel, int segment, char is_horizontal, int nx, int ny, s_track_instance *track_instances, int num_tracks, s_rr_node *****rr_node_lookup)
+{
+	int seg;
+	int num_starting_tracks;
+	int *starting_tracks;
+	int track;
+	int i;
+	starting_tracks = get_starting_tracks(channel, segment, INC_DIRECTION, track_instances, num_tracks, &num_starting_tracks);
+	for (i = 0; i < num_starting_tracks; i++) {
+		track = starting_tracks[i];
+
+	}
+}
 //
 //void build_main()
 //{
@@ -421,13 +543,7 @@ int *get_starting_tracks(int channel, int segment, e_track_direction direction, 
 //	tile_track_rr_node[x][y][track] = rr_node;
 //}
 //
-//s_rr_node *alloc_rr_node()
-//{
-//	s_rr_node *node;
-//	node = malloc(sizeof(s_rr_node));
-//	node->children = NULL;
-//	return node;
-//}
+
 //
 //void free_rr_node_array(t_rr_node **array, int array_size)
 //{
@@ -594,6 +710,7 @@ int main()
 	int num_tracks = 39;
 	s_track_instance *track_instances;
 	int track, channel, segment;
+	int start;
 	track_info[0].freq = 1;
 	track_info[0].length = 8;
 	track_info[1].freq = 2;
@@ -605,7 +722,13 @@ int main()
 	for (channel = 0; channel < 3; channel += 2) {
 		for (track = 0; track < 10; track++) {
 			for (segment = 2; segment < 20; segment+=2) {
-				printf("channel: %3d track: %3d segment: %3d start: %3d\n", channel, track, segment, get_segment_start(track_instances, channel, track, segment, 50));
+				if (track_instances[track].direction == INC_DIRECTION) {
+					printf("channel: %3d track: %3d segment: %3d start: %3d\n", channel, track, segment, get_segment_start(track_instances, channel, track, segment));
+				} else {
+					start = get_segment_start(track_instances, channel, track, segment);
+					printf("channel: %3d track: %3d segment: %3d start: %3d\n", channel, track, segment, get_segment_end(track_instances, channel, track, segment, start, 50));
+				}
+
 			}
 		}
 	}
