@@ -54,8 +54,9 @@ typedef struct _s_list_item {
 } s_list_item;
 
 typedef struct _s_list {
-	s_list_item *head;
-	s_list_item *current;
+	int num_items;
+	struct _s_list_item *head;
+	struct _s_list_item *current;
 } s_list;
 
 typedef struct _s_rr_node {
@@ -72,25 +73,29 @@ typedef struct _s_rr_node {
 
 typedef struct _s_wire {
 	int id;
-	s_wire_specs *spec;
-	s_list fanin;
-	s_list fanout;
+	int sb_x;
+	int sb_y;
+	struct _s_wire_specs *spec;
+	struct _s_list fanin;
+	struct _s_list fanout;
 } s_wire;
-
-typedef struct _s_block {
-	e_block_type type;
-	int x;
-	int y;
-	s_list *output_pins;
-	int num_output_pins;
-} s_block;
 
 typedef struct _s_switch_box {
 	int total_num_wires;
 	int *num_wires_by_type;
 	int num_wire_types;
-	s_wire *wires;
+	struct _s_wire *wires;
 } s_switch_box;
+
+typedef struct _s_block {
+	int x;
+	int y;
+	struct _s_list *input_pins;
+	int num_input_pins;
+	struct _s_list *output_pins;
+	int num_output_pins;
+	struct _s_switch_box *switch_box;
+} s_block;
 
 s_list_item *alloc_list_item()
 {
@@ -101,15 +106,12 @@ s_list_item *alloc_list_item()
 	return item;
 }
 
-//s_list *create_list(void *data)
-//{
-//	s_list *node;
-//
-//	node = alloc_list_item();
-//	node->data = data;
-//
-//	return node;
-//}
+void init_list(s_list *list)
+{
+	list->current = NULL;
+	list->head = NULL;
+	list->num_items = 0;
+}
 
 void insert_into_list(s_list *list, void *data)
 {
@@ -126,6 +128,8 @@ void insert_into_list(s_list *list, void *data)
 		list->current->next = item;
 		list->current = item;
 	}
+
+	list->num_items++;
 }
 
 void update_wire_spec_with_wire_count(INOUT s_wire_specs *wire_specs, IN int num_wire_specs, INOUT int *num_wires)
@@ -164,15 +168,18 @@ void update_wire_spec_with_wire_count(INOUT s_wire_specs *wire_specs, IN int num
 /* wires[clb_x][clb_y][is_horizontal][wire_spec][wire_index] */
 
 /* we assume all the wire_specs are unique */
-s_switch_box *create_switch_box(s_wire_specs *wire_specs, int num_wire_specs, int num_wires_per_clb, int x, int y)
+void init_switch_box(s_switch_box *switch_box, int x, int y, s_wire_specs *wire_specs, int num_wire_specs, int num_wires_per_clb, int *global_wire_id)
 {
-	s_switch_box *switch_box;
 	int wire_spec;
 	int wire;
 	int count;
+	int i;
 
-	switch_box = malloc(sizeof(s_switch_box));
 	switch_box->wires = malloc(sizeof(s_wire) * num_wires_per_clb);
+	for (i = 0; i < num_wires_per_clb; i++) {
+		init_list(&switch_box->wires[i].fanout);
+		init_list(&switch_box->wires[i].fanin);
+	}
 	switch_box->num_wires_by_type = malloc(sizeof(int) * num_wire_specs);
 	switch_box->total_num_wires = num_wires_per_clb;
 	switch_box->num_wire_types = num_wire_specs;
@@ -180,29 +187,28 @@ s_switch_box *create_switch_box(s_wire_specs *wire_specs, int num_wire_specs, in
 	for (wire_spec = 0; wire_spec < num_wire_specs; wire_spec++) {
 		switch_box->num_wires_by_type[wire_spec] = wire_specs[wire_spec].num_wires;
 		for (wire = 0; wire < wire_specs[wire_spec].num_wires; wire++) {
-			switch_box->wires[count].id = count;
+			switch_box->wires[count].sb_x = x;
+			switch_box->wires[count].sb_y = y;
+			switch_box->wires[count].id = *global_wire_id;
 			switch_box->wires[count].spec = &wire_specs[wire_spec];
 			count++;
+			(*global_wire_id)++;
 		}
 	}
 	assert(count == num_wires_per_clb);
-	return switch_box;
 }
 
-void add_fanout_to_clb_output_pin(s_block *clb, int pin_index, s_wire *fanout)
-{
-	insert_into_list(&(clb->output_pins[pin_index]), fanout);
-}
-
-void connect_clb_to_switch_box(s_block *clb, s_switch_box *switch_box, float fc_in, float fc_out)
+void init_clb_output_pins(s_block *clb, float fc_out)
 {
 	int output_pin;
 	int actual_fc_out;
 	int id;
 	bool *connected;
 	int num_connected_wires;
+	s_switch_box *switch_box;
 	int i;
 
+	switch_box = clb->switch_box;
 	actual_fc_out = switch_box->total_num_wires * fc_out;
 	connected = malloc(sizeof(bool) * switch_box->total_num_wires);
 
@@ -215,7 +221,7 @@ void connect_clb_to_switch_box(s_block *clb, s_switch_box *switch_box, float fc_
 		while (num_connected_wires < actual_fc_out) {
 			for (i = 0; i < switch_box->total_num_wires; i++) {
 				if (id == switch_box->wires[i].spec->id && !connected[i]) {
-					add_fanout_to_clb_output_pin(clb, output_pin, &(switch_box->wires[i]));
+					insert_into_list(&clb->output_pins[output_pin], &switch_box->wires[i]);
 					connected[i] = true;
 
 					num_connected_wires++;
@@ -225,20 +231,185 @@ void connect_clb_to_switch_box(s_block *clb, s_switch_box *switch_box, float fc_
 			id = (id+1) % switch_box->num_wire_types;
 		}
 	}
+
+	clb->switch_box = switch_box;
+
+	free(connected);
 }
 
-void dump_clb_output_pin(s_block *clb)
+void init_clb_input_pins(s_block *clb, float fc_in, s_list *ending_wires)
+{
+	int input_pin;
+	int actual_fc_in;
+	int id;
+	bool *connected;
+	int num_connected_wires;
+	int num_ending_wires;
+	s_list_item *item;
+	s_wire *wire;
+	int i;
+
+	num_ending_wires = ending_wires->num_items;
+	actual_fc_in = num_ending_wires * fc_in;
+	connected = malloc(sizeof(bool) * num_ending_wires);
+
+	id = 0;
+	for (input_pin = 0; input_pin < clb->num_input_pins; input_pin++) {
+		num_connected_wires = 0;
+		for (i = 0; i < num_ending_wires; i++) {
+			connected[i] = false;
+		}
+		while (num_connected_wires < actual_fc_in) {
+			item = ending_wires->head;
+			i = 0;
+			while (item) {
+				wire = (s_wire *)item->data;
+				if (id == wire->spec->id && !connected[i]) {
+					insert_into_list(&clb->input_pins[input_pin], wire);
+					connected[i] = true;
+					num_connected_wires++;
+					break;
+				}
+				i++;
+				item = item->next;
+			}
+			id = (id+1) % clb->switch_box->num_wire_types;
+		}
+	}
+
+	free(connected);
+}
+
+void get_ending_wires(s_list **ending_wires, s_block **clbs, int clb_nx, int clb_ny)
+{
+	int x;
+	int y;
+	s_switch_box *switch_box;
+	s_wire_specs *wire_spec;
+	int wire;
+	int dst_clb_x;
+	int dst_clb_y;
+
+	for (x = 0; x < clb_nx; x++) {
+		for (y = 0; y < clb_ny; y++) {
+			switch_box = clbs[x][y].switch_box;
+
+			for (wire = 0; wire < switch_box->total_num_wires; wire++) {
+				wire_spec = switch_box->wires[wire].spec;
+
+				dst_clb_x = x + wire_spec->relative_x;
+				dst_clb_y = y + wire_spec->relative_y;
+
+				if (dst_clb_x >= 0 && dst_clb_x < clb_nx && dst_clb_y >= 0 && dst_clb_y < clb_ny) {
+					insert_into_list(&ending_wires[dst_clb_x][dst_clb_y], &switch_box->wires[wire]);
+				}
+			}
+		}
+	}
+}
+
+void dump_clb(s_block *clb)
 {
 	int pin;
 	s_list_item *item;
 	s_wire *wire;
+
+	printf("CLB [%d,%d]\n", clb->x, clb->y);
+
 	for (pin = 0; pin < clb->num_output_pins; pin++) {
 		item = clb->output_pins[pin].head;
-		printf("Pin %d ->\n", pin);
+		printf("OPIN %d -> ", pin);
 		while (item) {
 			wire = (s_wire *)item->data;
-			printf("\t %s[%d]\n", wire->spec->name, wire->id);
+			printf("%s[id=%d x=%d y=%d] ", wire->spec->name, wire->id, wire->sb_x, wire->sb_y);
 			item = item->next;
+		}
+		printf("\n");
+	}
+	printf("\n");
+	for (pin = 0; pin < clb->num_input_pins; pin++) {
+		item = clb->input_pins[pin].head;
+		printf("IPIN %d -> ", pin);
+		while (item) {
+			wire = (s_wire *)item->data;
+			printf("%s[id=%d x=%d y=%d] ", wire->spec->name, wire->id, wire->sb_x, wire->sb_y);
+			item = item->next;
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+
+void init_clb(s_block *clb, int x, int y,
+		s_wire_specs *wire_specs, int num_wire_specs,
+		int num_wires_per_clb, int num_input_pins, int num_output_pins,
+		int *global_wire_id)
+{
+	int i;
+
+	clb->x = x;
+	clb->y = y;
+	clb->switch_box = NULL;
+	clb->num_input_pins = num_input_pins;
+	clb->input_pins = malloc(sizeof(s_list) * num_input_pins);
+	for (i = 0; i < num_input_pins; i++) {
+		init_list(&clb->input_pins[i]);
+	}
+	clb->num_output_pins = num_output_pins;
+	clb->output_pins = malloc(sizeof(s_list) * num_output_pins);
+	for (i = 0; i < num_output_pins; i++) {
+		init_list(&clb->output_pins[i]);
+	}
+
+	clb->switch_box = malloc(sizeof(s_switch_box));
+	init_switch_box(clb->switch_box, clb->x, clb->y, wire_specs, num_wire_specs, num_wires_per_clb, global_wire_id);
+}
+
+void init(s_wire_specs *wire_specs, int num_wire_specs,
+		int num_wires_per_clb, int num_input_pins, int num_output_pins)
+{
+	s_block **clbs;
+	s_list **ending_wires;
+	const int clb_nx = 4;
+	const int clb_ny = 4;
+	const float fc_out = 1;
+	const float fc_in = 1;
+	int x, y;
+	int global_wire_id;
+
+	clbs = malloc(clb_nx * sizeof(void *));
+	ending_wires = malloc(clb_nx * sizeof(void *));
+	for (x = 0; x < clb_nx; x++) {
+		clbs[x] = malloc(clb_ny * sizeof(s_block));
+		ending_wires[x] = malloc(clb_ny * sizeof(s_list));
+	}
+
+	for (x = 0; x < clb_nx; x++) {
+		for (y = 0; y < clb_ny; y++) {
+			ending_wires[x][y].current = NULL;
+			ending_wires[x][y].head = NULL;
+			ending_wires[x][y].num_items = 0;
+		}
+	}
+
+	global_wire_id = 0;
+	for (x = 0; x < clb_nx; x++) {
+		for (y = 0; y < clb_ny; y++) {
+			init_clb(&clbs[x][y], x, y, wire_specs, num_wire_specs, num_wires_per_clb, num_input_pins, num_output_pins, &global_wire_id);
+			init_clb_output_pins(&clbs[x][y], fc_out);
+		}
+	}
+
+	get_ending_wires(ending_wires, clbs, clb_nx, clb_ny);
+	for (x = 0; x < clb_nx; x++) {
+		for (y = 0; y < clb_ny; y++) {
+			init_clb_input_pins(&clbs[x][y], fc_in, &ending_wires[x][y]);
+		}
+	}
+
+	for (x = 0; x < clb_nx; x++) {
+		for (y = 0; y < clb_ny; y++) {
+			dump_clb(&clbs[x][y]);
 		}
 	}
 }
@@ -538,84 +709,84 @@ void dump_clb_output_pin(s_block *clb)
 //
 
 /* lookup[x][y][rr_type][ptc_number] */
-s_rr_node *****alloc_rr_node_lookup(int nx, int ny)
-{
-	int x, y, type, ptc;
-	s_rr_node *****lookup;
+//s_rr_node *****alloc_rr_node_lookup(int nx, int ny)
+//{
+//	int x, y, type, ptc;
+//	s_rr_node *****lookup;
+//
+//	lookup = malloc(sizeof(void *) * nx);
+//	for (x = 0; x < nx; x++) {
+//		lookup[x] = malloc(sizeof(void *) * ny);
+//		for (y = 0; y < ny; y++) {
+//			lookup[x][y] = malloc(sizeof(void *) * RR_TYPE_END);
+//			for (type = 0; type < RR_TYPE_END; type++) {
+//				lookup[x][y][type] = malloc(sizeof(void *) * 200);
+//				for (ptc = 0; ptc < 200; ptc++) {
+//					lookup[x][y][type][ptc] = NULL;
+//				}
+//			}
+//		}
+//	}
+//
+//	return lookup;
+//}
+//
+//void add_rr_node_to_lookup(s_rr_node *node, s_rr_node *****rr_node_lookup, int *num_rr_nodes)
+//{
+//	int x, y;
+//
+//	switch (node->type) {
+//	case CHANX:
+//		assert (node->ylow == node->yhigh);
+//
+//		y = node->ylow;
+//
+//		for (x = node->xlow; x <= node->xhigh; x++) {
+//			rr_node_lookup[x][y][node->type][node->ptc_number] = node;
+//		}
+//
+//		break;
+//	case CHANY:
+//		assert (node->xlow == node->xhigh);
+//
+//		x = node->xlow;
+//
+//		for (y = node->ylow; y <= node->yhigh; y++) {
+//			rr_node_lookup[x][y][node->type][node->ptc_number] = node;
+//		}
+//
+//		break;
+//	default:
+//		break;
+//	}
+//
+//}
+//
+//s_rr_node *alloc_rr_node()
+//{
+//	s_rr_node *node;
+//	node = malloc(sizeof(s_rr_node));
+//	//node->children = NULL;
+//	return node;
+//}
 
-	lookup = malloc(sizeof(void *) * nx);
-	for (x = 0; x < nx; x++) {
-		lookup[x] = malloc(sizeof(void *) * ny);
-		for (y = 0; y < ny; y++) {
-			lookup[x][y] = malloc(sizeof(void *) * RR_TYPE_END);
-			for (type = 0; type < RR_TYPE_END; type++) {
-				lookup[x][y][type] = malloc(sizeof(void *) * 200);
-				for (ptc = 0; ptc < 200; ptc++) {
-					lookup[x][y][type][ptc] = NULL;
-				}
-			}
-		}
-	}
-
-	return lookup;
-}
-
-void add_rr_node_to_lookup(s_rr_node *node, s_rr_node *****rr_node_lookup, int *num_rr_nodes)
-{
-	int x, y;
-
-	switch (node->type) {
-	case CHANX:
-		assert (node->ylow == node->yhigh);
-
-		y = node->ylow;
-
-		for (x = node->xlow; x <= node->xhigh; x++) {
-			rr_node_lookup[x][y][node->type][node->ptc_number] = node;
-		}
-
-		break;
-	case CHANY:
-		assert (node->xlow == node->xhigh);
-
-		x = node->xlow;
-
-		for (y = node->ylow; y <= node->yhigh; y++) {
-			rr_node_lookup[x][y][node->type][node->ptc_number] = node;
-		}
-
-		break;
-	default:
-		break;
-	}
-
-}
-
-s_rr_node *alloc_rr_node()
-{
-	s_rr_node *node;
-	node = malloc(sizeof(s_rr_node));
-	//node->children = NULL;
-	return node;
-}
-
-bool is_valid_channel(int x, int y) {
-	return true;
-}
-
-int get_seg_max(bool is_horizontal, int nx, int ny)
-{
-	if (is_horizontal) {
-		return nx - 1 - 1;
-	} else {
-		return ny - 1 - 1;
-	}
-}
-
-void build_block_pins(int x, int y)
-{
-
-}
+//bool is_valid_channel(int x, int y) {
+//	return true;
+//}
+//
+//int get_seg_max(bool is_horizontal, int nx, int ny)
+//{
+//	if (is_horizontal) {
+//		return nx - 1 - 1;
+//	} else {
+//		return ny - 1 - 1;
+//	}
+//}
+//
+//void build_block_pins(int x, int y)
+//{
+//
+//}
 
 //void build_channel(int channel, int segment, bool is_increasing, bool is_horizontal,
 //		int nx, int ny, int num_tracks, s_track *tracks,
@@ -654,18 +825,18 @@ void build_block_pins(int x, int y)
 //	}
 //}
 
-s_rr_node *alloc_and_load_rr_node_array(s_rr_node *****rr_node_lookup, int *num_rr_nodes)
-{
-	s_rr_node *rr_nodes;
-	rr_nodes = malloc(sizeof(s_rr_node) * *num_rr_nodes);
-
-	//for
-	return rr_nodes;
-}
-void build_channels()
-{
-	//for ()
-}
+//s_rr_node *alloc_and_load_rr_node_array(s_rr_node *****rr_node_lookup, int *num_rr_nodes)
+//{
+//	s_rr_node *rr_nodes;
+//	rr_nodes = malloc(sizeof(s_rr_node) * *num_rr_nodes);
+//
+//	//for
+//	return rr_nodes;
+//}
+//void build_channels()
+//{
+//	//for ()
+//}
 
 //s_rr_node *get_rr_node(int x, int y, e_rr_type type, int ptc_number, s_rr_node *****rr_node_lookup)
 //{
@@ -681,21 +852,21 @@ void build_channels()
 //	}
 //}
 
-void connect_channel(int channel, int segment, bool is_increasing, bool is_horizontal,
-		int nx, int ny, int num_tracks, s_track *tracks, s_rr_node *****rr_node_lookup)
-{
-	int seg;
-	int num_starting_tracks;
-	int *starting_tracks;
-	int track;
-	int i;
-	int low_seg, high_seg;
-	int direction;
-	s_list *fanouts, *fanout;
-	s_rr_node *dst_node, *src_node;
-
-	//starting_tracks = get_starting_tracks(channel, segment, is_increasing, tracks, num_tracks, &num_starting_tracks);
-	for (i = 0; i < num_starting_tracks; i++) {
+//void connect_channel(int channel, int segment, bool is_increasing, bool is_horizontal,
+//		int nx, int ny, int num_tracks, s_track *tracks, s_rr_node *****rr_node_lookup)
+//{
+//	int seg;
+//	int num_starting_tracks;
+//	int *starting_tracks;
+//	int track;
+//	int i;
+//	int low_seg, high_seg;
+//	int direction;
+//	s_list *fanouts, *fanout;
+//	s_rr_node *dst_node, *src_node;
+//
+//	//starting_tracks = get_starting_tracks(channel, segment, is_increasing, tracks, num_tracks, &num_starting_tracks);
+//	for (i = 0; i < num_starting_tracks; i++) {
 //		track = starting_tracks[i];
 //
 //		if (is_horizontal) {
@@ -718,8 +889,8 @@ void connect_channel(int channel, int segment, bool is_increasing, bool is_horiz
 //				add_rr_node_fanout()
 //			}
 //		}
-	}
-}
+//	}
+//}
 //
 //void build_main()
 //{
@@ -881,36 +1052,36 @@ void connect_channel(int channel, int segment, bool is_increasing, bool is_horiz
 //	return track_instances;
 //}
 
-void dump_tracks(s_track *tracks, int num_tracks)
-{
-	int track;
-	for (track = 0; track < num_tracks; track++) {
-		printf("Track: %d Start: %d Length: %d is_increasing: %d\n", track, tracks[track].start, tracks[track].length, tracks[track].is_increasing);
-	}
-}
-
-void dump_rr_nodes(s_rr_node *rr_nodes, int num_rr_nodes)
-{
-	int i;
-	char *rr_type_name[] = { "CHANX", "CHANY" };
-	for (i = 0; i < num_rr_nodes; i++) {
-		printf("Node %d: %s (%d,%d) -> (%d,%d) is_increasing: %d\n",
-				rr_nodes[i].index, rr_type_name[rr_nodes[i].type], rr_nodes[i].xlow, rr_nodes[i].ylow, rr_nodes[i].xhigh, rr_nodes[i].yhigh,
-				rr_nodes[i].is_increasing);
-	}
-}
-
-void clb_array_size_to_grid_size(int clb_nx, int clb_ny, int *grid_nx, int *grid_ny)
-{
-	int num_connection_box;
-	const int num_io = 2;
-
-	num_connection_box = clb_nx + 1;
-	*grid_nx = clb_nx + num_connection_box + num_io;
-
-	num_connection_box = clb_ny + 1;
-	*grid_ny = clb_ny + num_connection_box + num_io;
-}
+//void dump_tracks(s_track *tracks, int num_tracks)
+//{
+//	int track;
+//	for (track = 0; track < num_tracks; track++) {
+//		printf("Track: %d Start: %d Length: %d is_increasing: %d\n", track, tracks[track].start, tracks[track].length, tracks[track].is_increasing);
+//	}
+//}
+//
+//void dump_rr_nodes(s_rr_node *rr_nodes, int num_rr_nodes)
+//{
+//	int i;
+//	char *rr_type_name[] = { "CHANX", "CHANY" };
+//	for (i = 0; i < num_rr_nodes; i++) {
+//		printf("Node %d: %s (%d,%d) -> (%d,%d) is_increasing: %d\n",
+//				rr_nodes[i].index, rr_type_name[rr_nodes[i].type], rr_nodes[i].xlow, rr_nodes[i].ylow, rr_nodes[i].xhigh, rr_nodes[i].yhigh,
+//				rr_nodes[i].is_increasing);
+//	}
+//}
+//
+//void clb_array_size_to_grid_size(int clb_nx, int clb_ny, int *grid_nx, int *grid_ny)
+//{
+//	int num_connection_box;
+//	const int num_io = 2;
+//
+//	num_connection_box = clb_nx + 1;
+//	*grid_nx = clb_nx + num_connection_box + num_io;
+//
+//	num_connection_box = clb_ny + 1;
+//	*grid_ny = clb_ny + num_connection_box + num_io;
+//}
 
 static void
 close_window (GtkWidget *widget, gpointer lol)
@@ -939,38 +1110,51 @@ int main2(int argc, char *argv[])
 
 int main()
 {
-	s_wire_specs wire_specs[2];
-	int num_wires = 40;
+	s_wire_specs wire_specs[4];
+	int num_wires = 20;
 	s_track *tracks;
 	int track, channel, segment;
 	int start;
 	int nx, ny;
-	char *names[] = { "SINGLE", "QUAD" };
+	char *names[] = { "SINGLE", "DOUBLE", "SINGLE_R", "DOUBLE_R" };
 	s_block clb;
 	s_rr_node *****rr_node_lookup;
 	s_switch_box *sb;
-	clb.num_output_pins = 10;
-	clb.output_pins = malloc(10*sizeof(s_list));
+//	clb.num_output_pins = 10;
+//	clb.output_pins = malloc(10*sizeof(s_list));
 	wire_specs[0].name = names[0];
 	wire_specs[0].id = 0;
 	wire_specs[0].freq = 1;
 	wire_specs[0].relative_x = 1;
 	wire_specs[0].relative_y = 0;
-	wire_specs[1].id = 1;
 	wire_specs[1].name = names[1];
+	wire_specs[1].id = 1;
 	wire_specs[1].freq = 1;
-	wire_specs[1].relative_x = 4;
+	wire_specs[1].relative_x = 2;
 	wire_specs[1].relative_y = 0;
+	wire_specs[2].name = names[2];
+	wire_specs[2].id = 2;
+	wire_specs[2].freq = 1;
+	wire_specs[2].relative_x = -1;
+	wire_specs[2].relative_y = 0;
+	wire_specs[3].name = names[3];
+	wire_specs[3].id = 3;
+	wire_specs[3].freq = 1;
+	wire_specs[3].relative_x = -2;
+	wire_specs[3].relative_y = 0;
+
+	update_wire_spec_with_wire_count(wire_specs, 4, &num_wires);
+	init(wire_specs, 4, num_wires, 10, 5);
 
 	//tracks = alloc_and_init_tracks(track_info, 1, &num_tracks);
 	//dump_tracks(tracks, num_tracks);
 	//clb_array_size_to_grid_size(2, 2, &nx, &ny);
 	//rr_node_lookup = alloc_rr_node_lookup(nx, ny);
 	//build_channel(1, 2, true, true, nx, ny, num_tracks, tracks, rr_node_lookup);
-	update_wire_spec_with_wire_count(wire_specs, 2, &num_wires);
-	sb = create_switch_box(wire_specs, 2, num_wires, 0, 0);
-	connect_clb_to_switch_box(&clb, sb, 0.5, 0.5);
-	dump_clb_output_pin(&clb);
+//	update_wire_spec_with_wire_count(wire_specs, 2, &num_wires);
+//	sb = create_switch_box(wire_specs, 2, num_wires);
+//	connect_clb_to_switch_box(&clb, sb, 0.5);
+//	dump_clb_output_pin(&clb);
 	//get_starting_tracks(0, 2, INC_DIRECTION, track_instances,num_tracks, NULL);
 //	for (channel = 1; channel < 3; channel += 2) {
 //		for (track = 0; track < 10; track++) {
