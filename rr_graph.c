@@ -440,9 +440,9 @@ void init_clb_output_pins(s_block *clb, int num_output_pins, float fc_out, int *
 			num_connected_wires++;
 
 			tracks[direction][type] = (track+1) % switch_box->num_starting_wires_by_direction_and_type[direction][type];
+			types[direction] = get_next_non_zero_element_offset(switch_box->num_starting_wires_by_direction_and_type[direction], switch_box->num_wire_details, type+1, 1);
 
 			direction = get_next_non_zero_element_offset(switch_box->num_starting_wire_types_by_direction, NUM_WIRE_DIRECTIONS, direction+1, 1);
-			types[direction] = get_next_non_zero_element_offset(switch_box->num_starting_wires_by_direction_and_type[direction], switch_box->num_wire_details, types[direction]+1, 1);
 		}
 	}
 }
