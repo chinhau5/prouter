@@ -239,7 +239,7 @@ void init_starting_wires(s_block *clb, int clb_nx, int clb_ny, s_wire_details *w
 
 	switch_box = clb->switch_box;
 
-	switch_box->starting_wires = malloc(sizeof(s_wire) * num_wires_per_clb);
+	switch_box->starting_wires = NULL;
 	switch_box->wire_details = malloc(sizeof(s_wire_details) * num_wire_details);
 	for (i = 0; i < NUM_WIRE_DIRECTIONS; i++) {
 		switch_box->starting_wires_by_direction_and_type[i] = (s_wire ***)malloc(sizeof(s_wire **) * num_wire_details);
@@ -256,7 +256,11 @@ void init_starting_wires(s_block *clb, int clb_nx, int clb_ny, s_wire_details *w
 		}
 	}
 
-	for (pass = 0; pass < 1; pass++) {
+	for (pass = 0; pass < 2; pass++) {
+		if (pass == 1 && !switch_box->starting_wires) {
+			switch_box->starting_wires = malloc(sizeof(s_wire) * switch_box->num_starting_wires);
+			switch_box->num_starting_wires = 0;
+		}
 		for (detail = 0; detail < num_wire_details; detail++) {
 			temp_wire_details = wire_details[detail];
 
@@ -267,24 +271,28 @@ void init_starting_wires(s_block *clb, int clb_nx, int clb_ny, s_wire_details *w
 				continue;
 			}
 
-			switch_box->starting_wires_by_direction_and_type[temp_wire_details.direction][temp_wire_details.id] = (s_wire **)malloc(sizeof(s_wire *) * temp_wire_details.num_wires);
-			switch_box->num_starting_wire_types_by_direction[temp_wire_details.direction]++;
-			switch_box->num_starting_wires_by_direction_and_type[temp_wire_details.direction][temp_wire_details.id] = temp_wire_details.num_wires;
+			if (pass == 0) {
+				switch_box->num_starting_wires += temp_wire_details.num_wires;
+			} else {
+				switch_box->starting_wires_by_direction_and_type[temp_wire_details.direction][temp_wire_details.id] = (s_wire **)malloc(sizeof(s_wire *) * temp_wire_details.num_wires);
+				switch_box->num_starting_wire_types_by_direction[temp_wire_details.direction]++;
+				switch_box->num_starting_wires_by_direction_and_type[temp_wire_details.direction][temp_wire_details.id] = temp_wire_details.num_wires;
 
-			switch_box->wire_details[temp_wire_details.id] = temp_wire_details;
+				switch_box->wire_details[temp_wire_details.id] = temp_wire_details;
 
-			for (wire = 0; wire < temp_wire_details.num_wires; wire++) {
-				switch_box->starting_wires[switch_box->num_starting_wires].super.type = WIRE;
-				switch_box->starting_wires[switch_box->num_starting_wires].super.id = (*global_routing_node_id)++;
-				switch_box->starting_wires[switch_box->num_starting_wires].spec = &switch_box->wire_details[temp_wire_details.id];
-				switch_box->starting_wires[switch_box->num_starting_wires].sb_x = clb->x;
-				switch_box->starting_wires[switch_box->num_starting_wires].sb_y = clb->y;
-				init_list(&switch_box->starting_wires[switch_box->num_starting_wires].fanout);
-				init_list(&switch_box->starting_wires[switch_box->num_starting_wires].fanin);
+				for (wire = 0; wire < temp_wire_details.num_wires; wire++) {
+					switch_box->starting_wires[switch_box->num_starting_wires].super.type = WIRE;
+					switch_box->starting_wires[switch_box->num_starting_wires].super.id = (*global_routing_node_id)++;
+					switch_box->starting_wires[switch_box->num_starting_wires].spec = &switch_box->wire_details[temp_wire_details.id];
+					switch_box->starting_wires[switch_box->num_starting_wires].sb_x = clb->x;
+					switch_box->starting_wires[switch_box->num_starting_wires].sb_y = clb->y;
+					init_list(&switch_box->starting_wires[switch_box->num_starting_wires].fanout);
+					init_list(&switch_box->starting_wires[switch_box->num_starting_wires].fanin);
 
-				switch_box->starting_wires_by_direction_and_type[temp_wire_details.direction][temp_wire_details.id][wire] = &switch_box->starting_wires[switch_box->num_starting_wires];
+					switch_box->starting_wires_by_direction_and_type[temp_wire_details.direction][temp_wire_details.id][wire] = &switch_box->starting_wires[switch_box->num_starting_wires];
 
-				switch_box->num_starting_wires++;
+					switch_box->num_starting_wires++;
+				}
 			}
 		}
 	}
@@ -300,26 +308,23 @@ void init_ending_wires(s_block **clbs, int clb_nx, int clb_ny)
 	int wire;
 	int dst_clb_x;
 	int dst_clb_y;
-	e_wire_direction type;
 	int i;
+	int j;
 	int pass;
-	int **offsets;
-	bool allocated;
+	int track;
 
-	offsets = malloc(sizeof(int *)*clb_ny);
 	for (x = 0; x < clb_nx; x++) {
-		offsets[x] = malloc(sizeof(int)*clb_ny);
 		for (y = 0; y < clb_ny; y++) {
-			offsets[x][y] = 0;
-			clbs[x][y].switch_box->ending_wires = NULL;
-			clbs[x][y].switch_box->num_ending_wires = 0;
-//			for (type = 0; type < NUM_WIRE_TYPE; type++) {
-//				clbs[x][y].switch_box->num_ending_wires_by_type[type] = 0;
-//			}
+			for (i = 0; i < NUM_WIRE_DIRECTIONS; i++) {
+				clbs[x][y].switch_box->ending_wires = NULL;
+				clbs[x][y].switch_box->num_ending_wires = 0;
+				clbs[x][y].switch_box->num_ending_wire_types_by_direction[i] = 0;
+				clbs[x][y].switch_box->ending_wires_by_direction_and_type[i] = (s_wire ***)malloc(sizeof(s_wire **) * clbs[x][y].switch_box->num_wire_details);
+				clbs[x][y].switch_box->num_ending_wires_by_direction_and_type[i] = malloc(sizeof(int) * clbs[x][y].switch_box->num_wire_details);
+			}
 		}
 	}
 
-	allocated = false;
 	for (pass = 0; pass < 2; pass++) {
 		for (x = 0; x < clb_nx; x++) {
 			for (y = 0; y < clb_ny; y++) {
@@ -337,21 +342,30 @@ void init_ending_wires(s_block **clbs, int clb_nx, int clb_ny)
 
 					if (pass > 0) {
 						if (!dst_switch_box->ending_wires) {
-							dst_switch_box->ending_wires = malloc(sizeof(s_wire *)*clbs[x][y].switch_box->num_ending_wires);
+							dst_switch_box->ending_wires = malloc(sizeof(s_wire *)*dst_switch_box->num_ending_wires);
+							for (i = 0; i < NUM_WIRE_DIRECTIONS; i++) {
+								for (j = 0; j < dst_switch_box->num_wire_details; j++) {
+									dst_switch_box->ending_wires_by_direction_and_type[i][j] = (s_wire **)malloc(sizeof(s_wire *) * dst_switch_box->num_ending_wires_by_direction_and_type[i][j]);
+									dst_switch_box->num_ending_wires_by_direction_and_type[i][j] = 0;
+								}
+							}
+
+							dst_switch_box->num_ending_wires = 0;
 						}
-						dst_switch_box->ending_wires[offsets[dst_clb_x][dst_clb_y]++] = &src_switch_box->starting_wires[wire];
+
+						dst_switch_box->ending_wires[dst_switch_box->num_ending_wires] = &src_switch_box->starting_wires[wire];
+						track = dst_switch_box->num_ending_wires_by_direction_and_type[starting_wire_spec->direction][starting_wire_spec->id];
+						dst_switch_box->ending_wires_by_direction_and_type[starting_wire_spec->direction][starting_wire_spec->id][track] = &src_switch_box->starting_wires[wire];
+
+						dst_switch_box->num_ending_wires_by_direction_and_type[starting_wire_spec->direction][starting_wire_spec->id]++;
+						dst_switch_box->num_ending_wires++;
 					} else {
-						//dst_switch_box->num_ending_wires_by_type[starting_wire_spec->type]++;
+						dst_switch_box->num_ending_wire_types_by_direction[starting_wire_spec->direction]++;
+						dst_switch_box->num_ending_wires_by_direction_and_type[starting_wire_spec->direction][starting_wire_spec->id]++;
 						dst_switch_box->num_ending_wires++;
 					}
 				}
 			}
-		}
-	}
-
-	for (x = 0; x < clb_nx; x++) {
-		for (y = 0; y < clb_ny; y++) {
-			assert(offsets[x][y] == clbs[x][y].switch_box->num_ending_wires);
 		}
 	}
 
@@ -444,6 +458,10 @@ void init_clb_output_pins(s_block *clb, int num_output_pins, float fc_out, int *
 
 			direction = get_next_non_zero_element_offset(switch_box->num_starting_wire_types_by_direction, NUM_WIRE_DIRECTIONS, direction+1, 1);
 		}
+	}
+
+	for (i = 0; i < NUM_WIRE_DIRECTIONS; i++) {
+		free(tracks[i]);
 	}
 }
 
@@ -630,7 +648,8 @@ void dump_clb(s_block *clb)
 		}
 		printf("\n");
 	}
-//	printf("\n");
+	printf("\n");
+
 //	for (pin = 0; pin < clb->num_input_pins; pin++) {
 //		item = clb->input_pins[pin].connections.head;
 //		printf("IPIN %d -> ", pin);
@@ -643,18 +662,22 @@ void dump_clb(s_block *clb)
 //		printf("\n");
 //	}
 //	printf("\n");
-//	for (pin = 0; pin < clb->switch_box->num_starting_wires; pin++) {
-//		item = clb->switch_box->starting_wires[pin].fanout.head;
-//		printf("%s[%d,%d,%d] %d -> ", clb->switch_box->starting_wires[pin].spec->name, clb->switch_box->starting_wires[pin].spec->id, clb->switch_box->starting_wires[pin].spec->relative_x, clb->switch_box->starting_wires[pin].spec->relative_y, pin);
-//		while (item) {
-//			wire = (s_wire *)item->data;
-//			assert(wire->super.type == WIRE);
-//			printf("%s[id=%d x=%d y=%d] ", wire->spec->name, wire->super.id, wire->sb_x, wire->sb_y);
-//			item = item->next;
-//		}
-//		printf("\n");
-//	}
-//	printf("\n");
+
+	printf("Starting wires\n");
+	for (pin = 0; pin < clb->switch_box->num_starting_wires; pin++) {
+		item = clb->switch_box->starting_wires[pin].fanout.head;
+		printf("%s[id=%d,%d,%d,%d] %d -> ", clb->switch_box->starting_wires[pin].spec->name, clb->switch_box->starting_wires[pin].super.id, clb->switch_box->starting_wires[pin].spec->id, clb->switch_box->starting_wires[pin].spec->relative_x, clb->switch_box->starting_wires[pin].spec->relative_y, pin);
+		while (item) {
+			wire = (s_wire *)item->data;
+			assert(wire->super.type == WIRE);
+			printf("%s[id=%d x=%d y=%d] ", wire->spec->name, wire->super.id, wire->sb_x, wire->sb_y);
+			item = item->next;
+		}
+		printf("\n");
+	}
+	printf("\n");
+
+	printf("Starting wires by type\n");
 	count = 0;
 	for (i = 0; i < NUM_WIRE_DIRECTIONS; i++) {
 		for (j = 0; j < clb->switch_box->num_wire_details; j++) {
@@ -663,24 +686,40 @@ void dump_clb(s_block *clb)
 				assert(wire);
 				count++;
 				printf("%s[id=%d x=%d y=%d]\n", wire->spec->name, wire->super.id, wire->sb_x, wire->sb_y);
-				//printf("[id=%d x=%d y=%d]\n", wire->super.id, wire->sb_x, wire->sb_y);
 			}
 		}
 	}
-	//assert(count == clb->switch_box->num_starting_wires);
-//
-//	for (pin = 0; pin < clb->switch_box->num_ending_wires; pin++) {
-//		item = clb->switch_box->ending_wires[pin]->fanout.head;
-//		printf("%s[%d,%d,%d] %d -> ", clb->switch_box->ending_wires[pin]->spec->name, clb->switch_box->ending_wires[pin]->spec->id, clb->switch_box->ending_wires[pin]->spec->relative_x, clb->switch_box->ending_wires[pin]->spec->relative_y, pin);
-////		while (item) {
-////			wire = (s_wire *)item->data;
-////			assert(wire->super.type == WIRE);
-////			printf("%s[id=%d x=%d y=%d] ", wire->spec.name, wire->super.id, wire->sb_x, wire->sb_y);
-////			item = item->next;
-////		}
-//		printf("\n");
-//	}
 	printf("\n");
+	assert(count == clb->switch_box->num_starting_wires);
+
+	printf("Ending wires\n");
+	for (pin = 0; pin < clb->switch_box->num_ending_wires; pin++) {
+		item = clb->switch_box->ending_wires[pin]->fanout.head;
+		printf("%s[id=%d,%d,%d,%d] %d -> ", clb->switch_box->ending_wires[pin]->spec->name, clb->switch_box->ending_wires[pin]->super.id, clb->switch_box->ending_wires[pin]->spec->id, clb->switch_box->ending_wires[pin]->spec->relative_x, clb->switch_box->ending_wires[pin]->spec->relative_y, pin);
+//		while (item) {
+//			wire = (s_wire *)item->data;
+//			assert(wire->super.type == WIRE);
+//			printf("%s[id=%d x=%d y=%d] ", wire->spec.name, wire->super.id, wire->sb_x, wire->sb_y);
+//			item = item->next;
+//		}
+		printf("\n");
+	}
+	printf("\n");
+
+	printf("Ending wires by type\n");
+	count = 0;
+	for (i = 0; i < NUM_WIRE_DIRECTIONS; i++) {
+		for (j = 0; j < clb->switch_box->num_wire_details; j++) {
+			for (k = 0; k < clb->switch_box->num_ending_wires_by_direction_and_type[i][j]; k++) {
+				wire = clb->switch_box->ending_wires_by_direction_and_type[i][j][k];
+				assert(wire);
+				count++;
+				printf("%s[id=%d x=%d y=%d]\n", wire->spec->name, wire->super.id, wire->sb_x, wire->sb_y);
+			}
+		}
+	}
+	printf("\n");
+	assert(count == clb->switch_box->num_ending_wires);
 }
 
 //void init_clb(s_block *clb, int x, int y,
@@ -699,7 +738,6 @@ void init(s_wire_details *wire_specs, int num_wire_specs,
 		int num_wires_per_clb, int num_input_pins, int num_output_pins)
 {
 	s_block **clbs;
-	s_list **ending_wires;
 	const int clb_nx = 4;
 	const int clb_ny = 4;
 	const float fc_out = 0.5;
@@ -708,19 +746,9 @@ void init(s_wire_details *wire_specs, int num_wire_specs,
 	int x, y;
 	int global_routing_node_id;
 
-	clbs = malloc(clb_nx * sizeof(void *));
-	ending_wires = malloc(clb_nx * sizeof(void *));
+	clbs = malloc(clb_nx * sizeof(s_block *));
 	for (x = 0; x < clb_nx; x++) {
 		clbs[x] = malloc(clb_ny * sizeof(s_block));
-		ending_wires[x] = malloc(clb_ny * sizeof(s_list));
-	}
-
-	for (x = 0; x < clb_nx; x++) {
-		for (y = 0; y < clb_ny; y++) {
-			ending_wires[x][y].current = NULL;
-			ending_wires[x][y].head = NULL;
-			ending_wires[x][y].num_items = 0;
-		}
 	}
 
 	global_routing_node_id = 0;
@@ -1419,30 +1447,30 @@ void init(s_wire_details *wire_specs, int num_wire_specs,
 //	*grid_ny = clb_ny + num_connection_box + num_io;
 //}
 
-static void
-close_window (GtkWidget *widget, gpointer lol)
-{
-//  if (surface)
-//    cairo_surface_destroy (surface);
-	printf("%X\n", lol);
+//static void
+//close_window (GtkWidget *widget, gpointer lol)
+//{
+////  if (surface)
+////    cairo_surface_destroy (surface);
+//	printf("%X\n", lol);
+//
+//  //gtk_main_quit ();
+//}
 
-  //gtk_main_quit ();
-}
-
-int main2(int argc, char *argv[])
-{
-	GtkWidget *window;
-	GtkWidget *da;
-	gtk_init(&argc, &argv);
-	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_title(GTK_WINDOW(window), "prouter");
-	g_signal_connect(window, "destroy", G_CALLBACK(close_window), 0xdeadbeef);
-	da = gtk_drawing_area_new();
-	gtk_container_add(GTK_CONTAINER(window), da);
-
-	gtk_widget_show(window);
-	gtk_main();
-}
+//int main2(int argc, char *argv[])
+//{
+//	GtkWidget *window;
+//	GtkWidget *da;
+//	gtk_init(&argc, &argv);
+//	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+//	gtk_window_set_title(GTK_WINDOW(window), "prouter");
+//	g_signal_connect(window, "destroy", G_CALLBACK(close_window), 0xdeadbeef);
+//	da = gtk_drawing_area_new();
+//	gtk_container_add(GTK_CONTAINER(window), da);
+//
+//	gtk_widget_show(window);
+//	gtk_main();
+//}
 
 int main()
 {
