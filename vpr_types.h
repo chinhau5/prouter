@@ -72,6 +72,7 @@ typedef struct _s_wire {
 
 typedef struct _s_pin {
 	s_routing_node super;
+	char *name;
 	struct _s_list connections;
 } s_pin;
 
@@ -92,7 +93,33 @@ typedef struct _s_switch_box {
 	int num_wire_details;
 } s_switch_box;
 
-typedef struct _s_block {
+typedef struct _s_mode {
+	char *name;
+	struct _s_physical_block *children;
+	int num_children;
+} s_mode;
+
+typedef struct _s_port {
+	char *name;
+	int num_pins;
+} s_port;
+
+typedef struct _s_physical_block {
+	char *name;
+	char *blif_model;
+
+	s_port *input_ports; /* [port_index][pin_index] */
+	int num_input_ports;
+
+	s_port *output_ports; /* [port_index][pin_index] */
+	int num_output_ports;
+
+	struct _s_physical_block *parent;
+	struct _s_mode *modes;
+	int num_modes;
+} s_physical_block;
+
+typedef struct _s_physical_block_instance {
 	int x;
 	int y;
 	struct _s_pin *input_pins;

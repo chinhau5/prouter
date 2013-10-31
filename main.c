@@ -10,6 +10,8 @@
 #include "list.h"
 #include "vpr_types.h"
 #include "rr_graph.h"
+#include "heap.h"
+#include "parse_arch.h"
 
 int main()
 {
@@ -24,6 +26,8 @@ int main()
 	s_block clb;
 	s_rr_node *****rr_node_lookup;
 	s_switch_box *sb;
+	s_heap heap;
+	s_heap_item item;
 //	clb.num_output_pins = 10;
 //	clb.output_pins = malloc(10*sizeof(s_list));
 	wire_specs[0].name = names[0];
@@ -50,9 +54,23 @@ int main()
 	wire_specs[3].relative_x = 0;
 	wire_specs[3].relative_y = -1;
 
-	update_wire_count(wire_specs, 4, &num_wires);
-	update_wire_type(wire_specs, 4);
-	init(wire_specs, 4, num_wires, 10, 5);
+	parse_arch();
+
+//	init_heap(&heap);
+//	insert_to_heap(&heap, 10, NULL);
+//	insert_to_heap(&heap, 9, NULL);
+//	insert_to_heap(&heap, 8, NULL);
+//
+//	insert_to_heap(&heap, 7, NULL);
+//	insert_to_heap(&heap, 6, NULL);
+//
+//	while (get_heap_head(&heap, &item)) {
+//		printf("item: %f\n", item.cost);
+//	}
+
+//	update_wire_count(wire_specs, 4, &num_wires);
+//	update_wire_type(wire_specs, 4);
+//	init(wire_specs, 4, num_wires, 10, 5);
 
 	//tracks = alloc_and_init_tracks(track_info, 1, &num_tracks);
 	//dump_tracks(tracks, num_tracks);
