@@ -11,7 +11,8 @@
 #include "vpr_types.h"
 #include "rr_graph.h"
 #include "heap.h"
-#include "parse_arch.h"
+#include "arch.h"
+#include "netlist.h"
 
 int main()
 {
@@ -54,7 +55,8 @@ int main()
 	wire_specs[3].relative_x = 0;
 	wire_specs[3].relative_y = -1;
 
-	parse_arch();
+	//parse_arch("sample_arch.xml");
+	parse_netlist("tseng.net");
 
 //	init_heap(&heap);
 //	insert_to_heap(&heap, 10, NULL);

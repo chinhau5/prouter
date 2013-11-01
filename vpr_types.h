@@ -8,6 +8,9 @@
 #ifndef VPR_TYPES_H_
 #define VPR_TYPES_H_
 
+#include <stdbool.h>
+#include "list.h"
+
 typedef enum e_block_pin_type { BLOCK_INPUT, BLOCK_OUTPUT } e_block_pin_type;
 
 typedef enum e_side { TOP, RIGHT, BOTTOM, LEFT, SIDE_END } e_side;
@@ -93,10 +96,19 @@ typedef struct _s_switch_box {
 	int num_wire_details;
 } s_switch_box;
 
+typedef struct _s_interconnect {
+	char *name;
+	char *input_string;
+	char *output_string;
+} s_interconnect;
+
 typedef struct _s_mode {
 	char *name;
 	struct _s_physical_block *children;
 	int num_children;
+
+	struct _s_interconnect *interconnects;
+	int num_interconnects;
 } s_mode;
 
 typedef struct _s_port {
@@ -107,6 +119,7 @@ typedef struct _s_port {
 typedef struct _s_physical_block {
 	char *name;
 	char *blif_model;
+	int num_pbs;
 
 	s_port *input_ports; /* [port_index][pin_index] */
 	int num_input_ports;
@@ -118,6 +131,45 @@ typedef struct _s_physical_block {
 	struct _s_mode *modes;
 	int num_modes;
 } s_physical_block;
+
+typedef struct _s_pb_graph_pin {
+
+} s_pb_graph_pin;
+
+typedef struct _s_pb_graph_node {
+	struct _s_physical_block *type;
+
+	s_pb_graph_pin **input_pins; /* [0..num_input_ports-1] [0..num_port_pins-1]*/
+	s_pb_graph_pin **output_pins; /* [0..num_output_ports-1] [0..num_port_pins-1]*/
+	s_pb_graph_pin **clock_pins; /* [0..num_clock_ports-1] [0..num_port_pins-1]*/
+
+	struct _s_pb_graph_node ***children; /* [0..num_modes-1][0..num_pb_type_in_mode-1][0..num_pb-1] */
+	struct _s_pb_graph_node *parent;
+} s_pb_graph_node;
+
+typedef struct _s_complex_block {
+	s_physical_block pb;
+	int height;
+	int capacity;
+
+	s_pb_graph_node *pb_graph_head;
+} s_complex_block;
+
+typedef struct _s_pb {
+	struct _s_physical_block *type;
+	int mode;
+
+	struct _s_pb *parent;
+	struct _s_pb **children; /* [pb_type][pb_type_instance] */
+	int *num_children;
+} s_pb;
+
+typedef struct _t_block {
+	int x;
+	int y;
+
+	struct _s_pb *pb;
+} t_block;
 
 typedef struct _s_physical_block_instance {
 	int x;
