@@ -8,6 +8,7 @@
 #include <glib.h>
 #include <assert.h>
 #include "xml_helper.h"
+#include "helper.h"
 #include "list.h"
 #include "vpr_types.h"
 
@@ -23,7 +24,7 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *nets)
 	inputs_node = find_next_element(block_node->children, "inputs");
 	port_node = find_next_element(inputs_node->children, "port");
 	while (port_node) {
-		tokens = tokenize(port_node->children->content, " ");
+		tokenize(port_node->children->content, " ", &tokens);
 		token = tokens.head;
 		while (token) {
 			printf("%s\n", token->data);
@@ -49,7 +50,7 @@ void parse_block(xmlNodePtr block_node, s_pb_type *types, int num_types, s_pb *p
 	pb->parent = parent;
 
 	instance = xmlGetProp(block_node, "instance");
-	tokens = tokenize(instance, "[]");
+	tokenize(instance, "[]", &tokens);
 	assert(tokens.num_items == 2); /* instance name and instance number */
 	block_type = NULL;
 	for (i = 0; i < num_types; i++) {

@@ -5,9 +5,10 @@
  *      Author: chinhau5
  */
 
+#include <stdlib.h>
 #include "helper.h"
 
-s_list tokenize(char *str, const char *delim, s_list *tokens)
+void tokenize(char *str, const char *delim, s_list *tokens)
 {
 	char *token;
 

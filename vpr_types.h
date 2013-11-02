@@ -96,7 +96,7 @@ typedef struct _s_switch_box {
 	int num_wire_details;
 } s_switch_box;
 
-typedef enum _e_interconnect_type { UNKNOWN = -1, DIRECT, COMPLETE, MUX  } e_interconnect_type;
+typedef enum _e_interconnect_type { DIRECT, COMPLETE, MUX, NUM_INTERCONNECT_TYPE  } e_interconnect_type;
 
 typedef struct _s_interconnect {
 	e_interconnect_type type;
@@ -145,6 +145,7 @@ typedef struct _s_pb_top_type {
 
 typedef struct _s_pb_graph_pin {
 	struct _s_pb_graph_pin *edges;
+	int num_edges;
 } s_pb_graph_pin;
 
 typedef struct _s_pb_graph_node {

@@ -10,6 +10,6 @@
 
 #include "list.h"
 
-void tokenize(char *str, const char *delim, s_list *tokens)
+void tokenize(char *str, const char *delim, s_list *tokens);
 
 #endif /* HELPER_H_ */

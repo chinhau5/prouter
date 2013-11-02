@@ -10,4 +10,6 @@
 
 #include "vpr_types.h"
 
+void build_pb_graph(s_pb_graph_node *node, s_pb_type *pb_type, s_pb_graph_node *parent_node);
+
 #endif /* PB_GRAPH_H_ */

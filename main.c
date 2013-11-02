@@ -13,6 +13,7 @@
 #include "heap.h"
 #include "arch.h"
 #include "netlist.h"
+#include "pb_graph.h"
 
 int main()
 {
@@ -29,34 +30,39 @@ int main()
 	s_switch_box *sb;
 	s_heap heap;
 	s_heap_item item;
+
+	s_pb_top_type *pb_top_types;
+	int num_pb_top_types;
+	s_pb_graph_node pb_graph_head;
 //	clb.num_output_pins = 10;
 //	clb.output_pins = malloc(10*sizeof(s_list));
-	wire_specs[0].name = names[0];
-	wire_specs[0].id = 0;
-	wire_specs[0].freq = 1;
-	wire_specs[0].relative_x = 1;
-	wire_specs[0].relative_y = 0;
+//	wire_specs[0].name = names[0];
+//	wire_specs[0].id = 0;
+//	wire_specs[0].freq = 1;
+//	wire_specs[0].relative_x = 1;
+//	wire_specs[0].relative_y = 0;
+//
+//	wire_specs[1].name = names[0];
+//	wire_specs[1].id = 1;
+//	wire_specs[1].freq = 1;
+//	wire_specs[1].relative_x = 0;
+//	wire_specs[1].relative_y = 1;
+//
+//	wire_specs[2].name = names[2];
+//	wire_specs[2].id = 2;
+//	wire_specs[2].freq = 1;
+//	wire_specs[2].relative_x = -1;
+//	wire_specs[2].relative_y = 0;
+//
+//	wire_specs[3].name = names[2];
+//	wire_specs[3].id = 3;
+//	wire_specs[3].freq = 1;
+//	wire_specs[3].relative_x = 0;
+//	wire_specs[3].relative_y = -1;
 
-	wire_specs[1].name = names[0];
-	wire_specs[1].id = 1;
-	wire_specs[1].freq = 1;
-	wire_specs[1].relative_x = 0;
-	wire_specs[1].relative_y = 1;
-
-	wire_specs[2].name = names[2];
-	wire_specs[2].id = 2;
-	wire_specs[2].freq = 1;
-	wire_specs[2].relative_x = -1;
-	wire_specs[2].relative_y = 0;
-
-	wire_specs[3].name = names[2];
-	wire_specs[3].id = 3;
-	wire_specs[3].freq = 1;
-	wire_specs[3].relative_x = 0;
-	wire_specs[3].relative_y = -1;
-
-	parse_arch("sample_arch.xml");
-	parse_netlist("tseng.net");
+	pb_top_types = parse_arch("sample_arch.xml", &num_pb_top_types);
+	//parse_netlist("tseng.net", NULL, NULL, 0);
+	build_pb_graph(&pb_graph_head, pb_top_types, NULL);
 
 //	init_heap(&heap);
 //	insert_to_heap(&heap, 10, NULL);

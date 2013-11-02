@@ -12,42 +12,51 @@
 #include "vpr_types.h"
 #include "xml_helper.h"
 
+const char *interconnect_type_name[] = { "direct", "complete", "mux" };
+
 void parse_pb_type(xmlNodePtr pb_type_node, s_pb_type *pb_type, s_pb_type *parent);
 
-void dump_pb(s_pb_type *pb_type)
+void print_tabs(FILE *fp, int num_tabs)
+{
+	int i;
+	for (i = 0; i < num_tabs; i++) {
+		fprintf(fp, "\t");
+	}
+}
+
+void dump_pb(s_pb_type *pb_type, int level)
 {
 	int i, j;
 
-	printf("name: %s\n", pb_type->name);
-	printf("num_pbs: %d\n", pb_type->num_pbs);
-	printf("blif_model: %s\n", pb_type->blif_model);
+	print_tabs(stdout, level); printf("name: %s\n", pb_type->name);
+	print_tabs(stdout, level); printf("num_pbs: %d\n", pb_type->num_pbs);
+	print_tabs(stdout, level); printf("blif_model: %s\n", pb_type->blif_model);
 
 	for (i = 0; i < pb_type->num_input_ports; i++) {
-		printf("Input port: %s Num pins: %d\n", pb_type->input_ports[i].name, pb_type->input_ports[i].num_pins);
+		print_tabs(stdout, level); printf("Input port: %s Num pins: %d\n", pb_type->input_ports[i].name, pb_type->input_ports[i].num_pins);
 	}
 	for (i = 0; i < pb_type->num_output_ports; i++) {
-		printf("Output port: %s Num pins: %d\n", pb_type->output_ports[i].name, pb_type->output_ports[i].num_pins);
+		print_tabs(stdout, level); printf("Output port: %s Num pins: %d\n", pb_type->output_ports[i].name, pb_type->output_ports[i].num_pins);
 	}
 
 	if (pb_type->parent) {
-		printf("Parent name: %s\n", pb_type->parent->name);
+		print_tabs(stdout, level); printf("Parent name: %s\n", pb_type->parent->name);
 	}
 
 	for (i = 0; i < pb_type->num_modes; i++) {
-		printf("Mode: %s\n", pb_type->modes[i].name);
-		for (j = 0; j < pb_type->modes[i].num_interconnects; j++) {
-			printf("%s %s %s\n", pb_type->modes[i].interconnects[j].name, pb_type->modes[i].interconnects[j].input_string, pb_type->modes[i].interconnects[j].output_string);
-		}
+		print_tabs(stdout, level+1); printf("Mode: %s\n", pb_type->modes[i].name);
 		for (j = 0; j < pb_type->modes[i].num_children; j++) {
-			dump_pb(&pb_type->modes[i].children[j]);
+			dump_pb(&pb_type->modes[i].children[j], level+2);
 		}
-
+		for (j = 0; j < pb_type->modes[i].num_interconnects; j++) {
+			print_tabs(stdout, level+2); printf("Interconnect: %s Input: %s Output: %s\n", pb_type->modes[i].interconnects[j].name, pb_type->modes[i].interconnects[j].input_string, pb_type->modes[i].interconnects[j].output_string);
+		}
 	}
 }
 
 void dump_pb_top_type(s_pb_top_type *pb_top_type)
 {
-	dump_pb(&pb_top_type->pb);
+	dump_pb(&pb_top_type->pb, 0);
 	printf("capacity: %d\n", pb_top_type->capacity);
 	printf("height: %d\n", pb_top_type->height);
 }
@@ -57,6 +66,7 @@ void dump_pb_top_types(s_pb_top_type *pb_top_types, int num_pb_top_types)
 	int i;
 	for (i = 0; i < num_pb_top_types; i++) {
 		dump_pb_top_type(&pb_top_types[i]);
+		printf("\n");
 	}
 }
 
@@ -86,47 +96,37 @@ void parse_pb_type_ports(xmlNodePtr pb_type_node, s_pb_type *pb_type)
 	}
 }
 
-e_interconnect_type get_interconnect_type(const char *interconnect_type)
-{
-
-}
-
-void parse_interconnect_type(xmlNodePtr interconnect_node, const char *interconnect_type, s_interconnect *interconnect, int *num_interconnects)
+void parse_interconnect_type(xmlNodePtr interconnect_node, e_interconnect_type interconnect_type, s_interconnect *interconnect, int *num_interconnects)
 {
 	xmlNodePtr interconnect_type_node;
-	e_interconnect_type type;
 
-	type = get_interconnect_type
-
-	interconnect_type_node = find_next_element(interconnect_node->children, "interconnect_type");
+	interconnect_type_node = find_next_element(interconnect_node->children, interconnect_type_name[interconnect_type]);
 	while (interconnect_type_node) {
-		interconnect[*num_interconnects].type =
+		interconnect[*num_interconnects].type = interconnect_type;
 		interconnect[*num_interconnects].name = xmlGetProp(interconnect_type_node, "name");
 		interconnect[*num_interconnects].input_string = xmlGetProp(interconnect_type_node, "input");
 		interconnect[*num_interconnects].output_string = xmlGetProp(interconnect_type_node, "output");
 
 		(*num_interconnects)++;
-		interconnect_type_node = find_next_element(interconnect_type_node->next, "interconnect_type");
+		interconnect_type_node = find_next_element(interconnect_type_node->next, interconnect_type_name[interconnect_type]);
 	}
 }
 
 void parse_interconnect(xmlNodePtr interconnect_node, s_mode *mode)
 {
-	xmlNodePtr complete_node;
-	xmlNodePtr direct_node;
-	xmlNodePtr mux_node;
 	int count;
+	int i;
 
-	mode->num_interconnects = get_child_count(interconnect_node, "complete");
-	mode->num_interconnects += get_child_count(interconnect_node, "direct");
-	mode->num_interconnects += get_child_count(interconnect_node, "mux");
-
+	mode->num_interconnects = 0;
+	for (i = 0; i < NUM_INTERCONNECT_TYPE; i++) {
+		mode->num_interconnects += get_child_count(interconnect_node, interconnect_type_name[i]);
+	}
 	mode->interconnects = malloc(sizeof(s_interconnect) * mode->num_interconnects);
 
 	count = 0;
-	parse_interconnect_type(interconnect_node, "direct", mode->interconnects, &count);
-	parse_interconnect_type(interconnect_node, "complete", mode->interconnects, &count);
-	parse_interconnect_type(interconnect_node, "mux", mode->interconnects, &count);
+	for (i = 0; i < NUM_INTERCONNECT_TYPE; i++) {
+		parse_interconnect_type(interconnect_node, i, mode->interconnects, &count);
+	}
 	assert(count == mode->num_interconnects);
 }
 
@@ -160,11 +160,7 @@ void parse_mode(xmlNodePtr mode_node, s_mode *mode, s_pb_type *mode_parent)
 void parse_pb_type(xmlNodePtr pb_type_node, s_pb_type *pb_type, s_pb_type *parent)
 {
 	xmlNodePtr mode_node;
-	xmlNodePtr pb_type_child_node;
-	xmlNodePtr interconnect_node;
-	xmlChar *prop;
 	int count;
-	int mode;
 	char *num_pbs;
 
 	assert(!strcmp(pb_type_node->name, "pb_type"));
@@ -250,20 +246,21 @@ s_pb_top_type *parse_complex_block_list(xmlNodePtr complexblocklist_node, int *n
 	return pb_top_types;
 }
 
-void parse_arch(const char *filename)
+s_pb_top_type *parse_arch(const char *filename, int *num_pb_top_types)
 {
 	xmlDocPtr doc;
 	xmlNodePtr complexblocklist_node;
 	xmlNodePtr root_node;
 	s_pb_top_type *pb_top_types;
-	int num_pb_top_types;
 
 	doc = xmlParseFile(filename);
 	root_node = xmlDocGetRootElement(doc);
 	check_element_name(root_node, "architecture");
 
 	complexblocklist_node = find_next_element(root_node->children, "complexblocklist");
-	pb_top_types = parse_complex_block_list(complexblocklist_node, &num_pb_top_types);
+	pb_top_types = parse_complex_block_list(complexblocklist_node, num_pb_top_types);
 
-	dump_pb_top_types(pb_top_types, num_pb_top_types);
+	dump_pb_top_types(pb_top_types, *num_pb_top_types);
+
+	return pb_top_types;
 }
