@@ -55,7 +55,7 @@ int main()
 	wire_specs[3].relative_x = 0;
 	wire_specs[3].relative_y = -1;
 
-	//parse_arch("sample_arch.xml");
+	parse_arch("sample_arch.xml");
 	parse_netlist("tseng.net");
 
 //	init_heap(&heap);

@@ -96,7 +96,10 @@ typedef struct _s_switch_box {
 	int num_wire_details;
 } s_switch_box;
 
+typedef enum _e_interconnect_type { UNKNOWN = -1, DIRECT, COMPLETE, MUX  } e_interconnect_type;
+
 typedef struct _s_interconnect {
+	e_interconnect_type type;
 	char *name;
 	char *input_string;
 	char *output_string;
@@ -104,7 +107,7 @@ typedef struct _s_interconnect {
 
 typedef struct _s_mode {
 	char *name;
-	struct _s_physical_block *children;
+	struct _s_pb_type *children;
 	int num_children;
 
 	struct _s_interconnect *interconnects;
@@ -116,47 +119,47 @@ typedef struct _s_port {
 	int num_pins;
 } s_port;
 
-typedef struct _s_physical_block {
+typedef struct _s_pb_type {
 	char *name;
 	char *blif_model;
 	int num_pbs;
 
-	s_port *input_ports; /* [port_index][pin_index] */
+	struct _s_port *input_ports; /* [port_index][pin_index] */
 	int num_input_ports;
 
-	s_port *output_ports; /* [port_index][pin_index] */
+	struct _s_port *output_ports; /* [port_index][pin_index] */
 	int num_output_ports;
 
-	struct _s_physical_block *parent;
+	struct _s_pb_type *parent;
 	struct _s_mode *modes;
 	int num_modes;
-} s_physical_block;
+} s_pb_type;
+
+typedef struct _s_pb_top_type {
+	struct _s_pb_type pb;
+	int height;
+	int capacity;
+
+	struct _s_pb_graph_node *pb_graph_head;
+} s_pb_top_type;
 
 typedef struct _s_pb_graph_pin {
-
+	struct _s_pb_graph_pin *edges;
 } s_pb_graph_pin;
 
 typedef struct _s_pb_graph_node {
-	struct _s_physical_block *type;
+	struct _s_pb_type *type;
 
-	s_pb_graph_pin **input_pins; /* [0..num_input_ports-1] [0..num_port_pins-1]*/
-	s_pb_graph_pin **output_pins; /* [0..num_output_ports-1] [0..num_port_pins-1]*/
-	s_pb_graph_pin **clock_pins; /* [0..num_clock_ports-1] [0..num_port_pins-1]*/
+	struct _s_pb_graph_pin **input_pins; /* [0..num_input_ports-1] [0..num_port_pins-1]*/
+	struct _s_pb_graph_pin **output_pins; /* [0..num_output_ports-1] [0..num_port_pins-1]*/
+	struct _s_pb_graph_pin **clock_pins; /* [0..num_clock_ports-1] [0..num_port_pins-1]*/
 
 	struct _s_pb_graph_node ***children; /* [0..num_modes-1][0..num_pb_type_in_mode-1][0..num_pb-1] */
 	struct _s_pb_graph_node *parent;
 } s_pb_graph_node;
 
-typedef struct _s_complex_block {
-	s_physical_block pb;
-	int height;
-	int capacity;
-
-	s_pb_graph_node *pb_graph_head;
-} s_complex_block;
-
 typedef struct _s_pb {
-	struct _s_physical_block *type;
+	struct _s_pb_type *type;
 	int mode;
 
 	struct _s_pb *parent;

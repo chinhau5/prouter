@@ -11,20 +11,6 @@
 #include "list.h"
 #include "vpr_types.h"
 
-s_list tokenize(char *str, const char *delim)
-{
-	s_list tokens;
-	char *token;
-
-	init_list(&tokens);
-	token = strtok(str, delim);
-	while (token) {
-		insert_into_list(&tokens, token);
-		token = strtok(NULL, " ");
-	}
-	return tokens;
-}
-
 void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *nets)
 {
 	char *inputs;
@@ -50,12 +36,12 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *nets)
 	outputs = find_next_element(block_node->children, "outputs");
 }
 
-void parse_block(xmlNodePtr block_node, s_physical_block *types, int num_types, s_pb *pb, s_pb *parent)
+void parse_block(xmlNodePtr block_node, s_pb_type *types, int num_types, s_pb *pb, s_pb *parent)
 {
 	char *instance;
 	s_list tokens;
 	s_list_item *token;
-	s_physical_block *block_type;
+	s_pb_type *block_type;
 	int i;
 
 	check_element_name(block_node, "block");
@@ -80,7 +66,7 @@ void parse_block(xmlNodePtr block_node, s_physical_block *types, int num_types, 
 	parse_block_ports(block_node, pb, NULL);
 }
 
-t_block *parse_netlist(const char *filename, int *num_blocks, s_physical_block *types, int num_types)
+t_block *parse_netlist(const char *filename, int *num_blocks, s_pb_type *types, int num_types)
 {
 	xmlDocPtr netlist;
 	xmlNodePtr root_node;
