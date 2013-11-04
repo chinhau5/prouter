@@ -30,6 +30,7 @@ int main()
 	s_switch_box *sb;
 	s_heap heap;
 	s_heap_item item;
+	int num_blocks;
 
 	s_pb_top_type *pb_top_types;
 	int num_pb_top_types;
@@ -61,8 +62,10 @@ int main()
 //	wire_specs[3].relative_y = -1;
 
 	pb_top_types = parse_arch("sample_arch.xml", &num_pb_top_types);
-	//parse_netlist("tseng.net", NULL, NULL, 0);
-	build_pb_graph(&pb_graph_head, pb_top_types, NULL);
+	parse_netlist("tseng.net", &num_blocks, pb_top_types, num_pb_top_types);
+//	for (i = 0; i < num_pb_top_types; i++) {
+//		build_pb_graph(&pb_graph_head, &pb_top_types[i], NULL);
+//	}
 
 //	init_heap(&heap);
 //	insert_to_heap(&heap, 10, NULL);

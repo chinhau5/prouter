@@ -161,11 +161,11 @@ typedef struct _s_pb_graph_node {
 
 typedef struct _s_pb {
 	struct _s_pb_type *type;
-	int mode;
+	struct _s_mode *mode;
 
 	struct _s_pb *parent;
 	struct _s_pb **children; /* [pb_type][pb_type_instance] */
-	int *num_children;
+	//int *num_children;
 } s_pb;
 
 typedef struct _t_block {
