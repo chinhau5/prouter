@@ -13,6 +13,7 @@
 #include "xml_helper.h"
 
 const char *interconnect_type_name[] = { "direct", "complete", "mux" };
+const char *port_type_name[] = { "input", "output", "clock" };
 
 void parse_pb_type(xmlNodePtr pb_type_node, s_pb_type *pb_type, s_pb_type *parent);
 
@@ -37,6 +38,9 @@ void dump_pb(s_pb_type *pb_type, int level)
 	}
 	for (i = 0; i < pb_type->num_output_ports; i++) {
 		print_tabs(stdout, level); printf("Output port: %s Num pins: %d\n", pb_type->output_ports[i].name, pb_type->output_ports[i].num_pins);
+	}
+	for (i = 0; i < pb_type->num_clock_ports; i++) {
+		print_tabs(stdout, level); printf("Clock port: %s Num pins: %d\n", pb_type->clock_ports[i].name, pb_type->clock_ports[i].num_pins);
 	}
 
 	if (pb_type->parent) {
@@ -70,30 +74,27 @@ void dump_pb_top_types(s_pb_top_type *pb_top_types, int num_pb_top_types)
 	}
 }
 
+void parse_port(xmlNodePtr pb_type_node, e_port_type port_type, s_port **ports, int *num_ports)
+{
+	int i;
+	xmlNodePtr port_node;
+	*num_ports = get_child_count(pb_type_node, port_type_name[port_type]);
+	(*ports) = malloc(sizeof(s_port) * *num_ports);
+	port_node = find_next_element(pb_type_node->children, port_type_name[port_type]);
+	for (i = 0; i < *num_ports; i++) {
+		(*ports)[i].type = port_type;
+		(*ports)[i].port_number = i;
+		(*ports)[i].name = xmlGetProp(port_node, "name");
+		(*ports)[i].num_pins = atoi(xmlGetProp(port_node, "num_pins"));
+		port_node = find_next_element(port_node->next, port_type_name[port_type]);
+	}
+}
+
 void parse_pb_type_ports(xmlNodePtr pb_type_node, s_pb_type *pb_type)
 {
-	xmlNodePtr input_node;
-	xmlNodePtr output_node;
-	int i;
-
-	pb_type->num_input_ports = get_child_count(pb_type_node, "input");
-	pb_type->input_ports = malloc(sizeof(s_port) * pb_type->num_input_ports);
-
-	input_node = find_next_element(pb_type_node->children, "input");
-	for (i = 0; i < pb_type->num_input_ports; i++) {
-		pb_type->input_ports[i].num_pins = atoi(xmlGetProp(input_node, "num_pins"));
-		pb_type->input_ports[i].name = xmlGetProp(input_node, "name");
-		input_node = find_next_element(input_node->next, "input");
-	}
-
-	pb_type->num_output_ports = get_child_count(pb_type_node, "output");
-	pb_type->output_ports = malloc(sizeof(s_port) * pb_type->num_output_ports);
-	output_node = find_next_element(pb_type_node->children, "output");
-	for (i = 0; i < pb_type->num_output_ports; i++) {
-		pb_type->output_ports[i].num_pins = atoi(xmlGetProp(output_node, "num_pins"));
-		pb_type->output_ports[i].name = xmlGetProp(output_node, "name");
-		output_node = find_next_element(output_node->next, "output");
-	}
+	parse_port(pb_type_node, INPUT_PORT, &pb_type->input_ports, &pb_type->num_input_ports);
+	parse_port(pb_type_node, OUTPUT_PORT, &pb_type->output_ports, &pb_type->num_output_ports);
+	parse_port(pb_type_node, CLOCK_PORT, &pb_type->clock_ports, &pb_type->num_clock_ports);
 }
 
 void parse_interconnect_type(xmlNodePtr interconnect_node, e_interconnect_type interconnect_type, s_interconnect *interconnect, int *num_interconnects)

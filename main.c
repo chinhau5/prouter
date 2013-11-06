@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <glib.h>
 #include "list.h"
 #include "vpr_types.h"
 #include "rr_graph.h"
@@ -14,6 +15,33 @@
 #include "arch.h"
 #include "netlist.h"
 #include "pb_graph.h"
+
+void alloc_and_init_block_grid_positions(t_block ***grid, int nx, int ny, GHashTable *block_positions)
+{
+	int x, y;
+	GHashTableIter iter;
+	gpointer key, value;
+	s_block_position *block_position;
+
+	*grid = malloc(sizeof(t_block *) * nx);
+	for (x = 0; x < nx; x++) {
+		(*grid)[x] = malloc(sizeof(t_block) * ny);
+	}
+
+	for (x = 0; x < nx; x++) {
+		for (y = 0; y < ny; y++) {
+			(*grid)[x][y].name = NULL;
+		}
+	}
+
+	g_hash_table_iter_init (&iter, block_positions);
+	while (g_hash_table_iter_next (&iter, &key, &value)) {
+		block_position = value;
+		(*grid)[block_position->x][block_position->y].x = block_position->x;
+		(*grid)[block_position->x][block_position->y].y = block_position->y;
+		(*grid)[block_position->x][block_position->y].name = key;
+	}
+}
 
 int main()
 {
@@ -35,6 +63,12 @@ int main()
 	s_pb_top_type *pb_top_types;
 	int num_pb_top_types;
 	s_pb_graph_node pb_graph_head;
+	GHashTable *block_positions;
+	GHashTableIter iter;
+	gpointer key, value;
+	struct _s_block_position *block_pos;
+	t_block **grid;
+	int x, y;
 //	clb.num_output_pins = 10;
 //	clb.output_pins = malloc(10*sizeof(s_list));
 //	wire_specs[0].name = names[0];
@@ -61,11 +95,22 @@ int main()
 //	wire_specs[3].relative_x = 0;
 //	wire_specs[3].relative_y = -1;
 
+	read_placement("ex5p.place", &nx, &ny, &block_positions);
+	alloc_and_init_block_grid_positions(&grid, nx, ny, block_positions);
+
+	for (x = 0; x < nx; x++) {
+		for (y = 0; y < ny; y++) {
+			if (grid[x][y].name) {
+				printf("grid[%d][%d] x=%d y=%d name=%s\n", x, y, grid[x][y].x, grid[x][y].y, grid[x][y].name);
+			}
+		}
+	}
+
 	pb_top_types = parse_arch("sample_arch.xml", &num_pb_top_types);
-	parse_netlist("tseng.net", &num_blocks, pb_top_types, num_pb_top_types);
-//	for (i = 0; i < num_pb_top_types; i++) {
-//		build_pb_graph(&pb_graph_head, &pb_top_types[i], NULL);
-//	}
+//	parse_netlist("tseng.net", &num_blocks, pb_top_types, num_pb_top_types);
+	for (i = 0; i < num_pb_top_types; i++) {
+		build_pb_graph(&pb_graph_head, &pb_top_types[i], NULL);
+	}
 
 //	init_heap(&heap);
 //	insert_to_heap(&heap, 10, NULL);

@@ -61,22 +61,22 @@ typedef struct _s_rr_node {
 
 typedef struct _s_routing_node {
 	e_routing_node_type type;
-	int id;
+	//int id;
+	struct _s_routing_node *parent;
+	struct _s_list children;
 } s_routing_node;
 
 typedef struct _s_wire {
-	s_routing_node super;
+	s_routing_node base;
 	struct _s_wire_details *details;
 	int sb_x;
 	int sb_y;
 	struct _s_list fanin;
-	struct _s_list fanout;
 } s_wire;
 
 typedef struct _s_pin {
-	s_routing_node super;
+	s_routing_node base;
 	char *name;
-	struct _s_list connections;
 } s_pin;
 
 typedef struct _s_switch_box {
@@ -97,6 +97,7 @@ typedef struct _s_switch_box {
 } s_switch_box;
 
 typedef enum _e_interconnect_type { DIRECT, COMPLETE, MUX, NUM_INTERCONNECT_TYPE  } e_interconnect_type;
+typedef enum _e_port_type { INPUT_PORT, OUTPUT_PORT, CLOCK_PORT, NUM_PORT_TYPE  } e_port_type;
 
 typedef struct _s_interconnect {
 	e_interconnect_type type;
@@ -104,6 +105,13 @@ typedef struct _s_interconnect {
 	char *input_string;
 	char *output_string;
 } s_interconnect;
+
+typedef struct _s_port {
+	e_port_type type;
+	int port_number;
+	char *name;
+	int num_pins;
+} s_port;
 
 typedef struct _s_mode {
 	char *name;
@@ -113,11 +121,6 @@ typedef struct _s_mode {
 	struct _s_interconnect *interconnects;
 	int num_interconnects;
 } s_mode;
-
-typedef struct _s_port {
-	char *name;
-	int num_pins;
-} s_port;
 
 typedef struct _s_pb_type {
 	char *name;
@@ -129,6 +132,9 @@ typedef struct _s_pb_type {
 
 	struct _s_port *output_ports; /* [port_index][pin_index] */
 	int num_output_ports;
+
+	struct _s_port *clock_ports;
+	int num_clock_ports;
 
 	struct _s_pb_type *parent;
 	struct _s_mode *modes;
@@ -144,8 +150,9 @@ typedef struct _s_pb_top_type {
 } s_pb_top_type;
 
 typedef struct _s_pb_graph_pin {
-	struct _s_pb_graph_pin *edges;
-	int num_edges;
+	s_routing_node base;
+	struct _s_port *port;
+	int pin_number;
 } s_pb_graph_pin;
 
 typedef struct _s_pb_graph_node {
@@ -171,6 +178,7 @@ typedef struct _s_pb {
 typedef struct _t_block {
 	int x;
 	int y;
+	char *name;
 
 	struct _s_pb *pb;
 } t_block;
@@ -184,5 +192,11 @@ typedef struct _s_physical_block_instance {
 	int num_output_pins;
 	struct _s_switch_box *switch_box;
 } s_block;
+
+typedef struct _s_block_position {
+	int x;
+	int y;
+	int z;
+} s_block_position;
 
 #endif /* VPR_TYPES_H_ */

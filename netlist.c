@@ -12,6 +12,48 @@
 #include "list.h"
 #include "vpr_types.h"
 
+
+
+void read_placement(const char *filename, int *nx, int *ny, GHashTable **block_positions)
+{
+	FILE *file;
+	char buffer[256];
+	char block_name[256];
+	int block_number;
+	s_block_position *block_position;
+	int x, y, z;
+	int val;
+	int count;
+
+	*block_positions = g_hash_table_new(g_str_hash, g_str_equal);
+
+	file = fopen(filename, "r");
+
+	fgets(buffer, sizeof(buffer), file);
+
+	fscanf(file, "Array size : %d x %d logic blocks", nx, ny);
+	*nx += 2;
+	*ny += 2;
+
+	fgets(buffer, sizeof(buffer), file);
+	fgets(buffer, sizeof(buffer), file);
+	fgets(buffer, sizeof(buffer), file);
+	fgets(buffer, sizeof(buffer), file);
+
+	count = 0;
+	while (fscanf(file, "%s %d %d %d #%d ", block_name, &x, &y, &z, &block_number) == 5) {
+		block_position = malloc(sizeof(s_block_position));
+		block_position->x = x;
+		block_position->y = y;
+		block_position->z = z;
+
+		//printf("%d %s %d %d %d %d\n", val, block_name, block_position->x, block_position->y, block_position->z, block_number);
+		assert(!g_hash_table_contains(*block_positions, block_name));
+		g_hash_table_insert(*block_positions, strdup(block_name), block_position);
+	}
+	fclose(file);
+}
+
 void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *nets)
 {
 	char *inputs;
@@ -38,27 +80,21 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *nets)
 	outputs_node = find_next_element(block_node->children, "outputs");
 }
 
-s_pb_type *get_pb_type_from_instance_name(const char *instance_name, int *pb_type_index, s_pb_type *pb_types, int num_pb_types)
+s_pb_type *get_pb_type_from_instance_name(void *pb_types, int num_pb_types, bool top_level, const char *instance_name, int *pb_type_index)
 {
 	int i;
 
 	for (i = 0; i < num_pb_types; i++) {
-		if (!strcmp(pb_types[i].name, instance_name)) {
-			*pb_type_index = i;
-			return &pb_types[i];
-		}
-	}
-	return NULL;
-}
-
-s_pb_top_type *get_pb_top_type_from_instance_name(const char *instance_name, int *pb_type_index, s_pb_top_type *pb_top_types, int num_pb_top_types)
-{
-	int i;
-
-	for (i = 0; i < num_pb_top_types; i++) {
-		if (!strcmp(pb_top_types[i].pb.name, instance_name)) {
-			*pb_type_index = i;
-			return &pb_top_types[i].pb;
+		if (top_level) {
+			if (!strcmp(((s_pb_top_type *)pb_types)[i].pb.name, instance_name)) {
+				*pb_type_index = i;
+				return &((s_pb_top_type *)pb_types)[i].pb;
+			}
+		} else {
+			if (!strcmp(((s_pb_type *)pb_types)[i].name, instance_name)) {
+				*pb_type_index = i;
+				return &((s_pb_type *)pb_types)[i];
+			}
 		}
 	}
 	return NULL;
@@ -97,16 +133,17 @@ void parse_block(s_pb **pbs, GHashTable *external_nets, xmlNodePtr block_node, s
 	check_element_name(block_node, "block");
 
 	instance_name_and_index = xmlGetProp(block_node, "instance");
-	instance_name = tokenize_name_and_index(instance_name_and_index, &instance_low, &instance_high);
+
+	pb_type = get_pb_type_from_instance_name(pb_types, num_pb_types, top_level, instance_name_and_index, &pb_type_index);
+
+	instance_name = tokenize_name_and_index(instance_name_and_index, &instance_low, &instance_high, pb_type->num_pbs-1);
 	mode_name = xmlGetProp(block_node, "mode");
 
 	assert(instance_low == instance_high);
 
 	if (top_level) {
-		pb_type = get_pb_top_type_from_instance_name(instance_name, &pb_type_index, pb_types, num_pb_types);
 		pb = &pbs[0][instance_low];
 	} else {
-		pb_type = get_pb_type_from_instance_name(instance_name, &pb_type_index, pb_types, num_pb_types);
 		pb = &pbs[pb_type_index][instance_low];
 	}
 
