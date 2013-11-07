@@ -6,6 +6,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 #include <stdbool.h>
 #include "helper.h"

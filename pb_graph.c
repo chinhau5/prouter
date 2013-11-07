@@ -16,32 +16,28 @@
 #include "list.h"
 #include "vpr_types.h"
 
-s_pb_type * find_child_pb_type(s_pb_type *parent_pb_type, int mode, const char *child_pb_type_name, int *index)
+s_pb_type * find_pb_type(s_pb_type *pb_types, int num_pb_types, const char *child_pb_type_name, int *index)
 {
 	int i;
 
-	if (mode >= parent_pb_type->num_modes) {
-		return NULL;
-	}
-
-	for (i = 0; i < parent_pb_type->modes[mode].num_children; i++) {
-		if (!strcmp(child_pb_type_name, parent_pb_type->modes[mode].children[i].name)) {
+	for (i = 0; i < num_pb_types; i++) {
+		if (!strcmp(child_pb_type_name, pb_types[i].name)) {
 			*index = i;
-			return &parent_pb_type->modes[mode].children[i];
+			return &pb_types[i];
 		}
 	}
 	return NULL;
 }
 
-s_pb_graph_pin *find_pb_graph_node_pin(s_pb_graph_node *node, s_port *port, int pin_number)
+s_pb_graph_pin *find_pb_pin(s_pb *pb, s_port *port, int pin_number)
 {
 	switch (port->type) {
 	case INPUT_PORT:
-		return &node->input_pins[port->port_number][pin_number];
+		return &pb->input_pins[port->port_number][pin_number];
 	case OUTPUT_PORT:
-		return &node->output_pins[port->port_number][pin_number];
+		return &pb->output_pins[port->port_number][pin_number];
 	case CLOCK_PORT:
-		return &node->clock_pins[port->port_number][pin_number];
+		return &pb->clock_pins[port->port_number][pin_number];
 	default:
 		break;
 	}
@@ -70,8 +66,9 @@ s_port *find_pb_type_port(s_pb_type *pb_type, const char *port_name)
 	}
 	return NULL;
 }
+
 /* s_pb_graph_pin ***pins pins[set][pin_index]-> */
-s_pb_graph_pin ***get_interconnect_pb_graph_pins(s_pb_type *pb_type, int mode, const char *interconnect_string, s_pb_graph_node *node, int *num_sets, int **num_pins)
+s_pb_graph_pin ***get_pb_pins(s_pb *parent_pb, s_pb **child_pbs, const char *port_string, int *num_sets, int **num_pins)
 {
 	s_list tokens;
 	s_list_item *item;
@@ -93,8 +90,10 @@ s_pb_graph_pin ***get_interconnect_pb_graph_pins(s_pb_type *pb_type, int mode, c
 	int set;
 	bool pb_type_no_index;
 	bool port_no_index;
+	int i;
+	s_pb *pb;
 
-	tokenize(interconnect_string, " ", &tokens);
+	tokenize(port_string, " ", &tokens);
 
 	*num_sets = tokens.num_items;
 	pins = malloc(sizeof(s_pb_graph_pin **) * *num_sets);
@@ -114,8 +113,8 @@ s_pb_graph_pin ***get_interconnect_pb_graph_pins(s_pb_type *pb_type, int mode, c
 
 		/* interconnect input can only come from 2 possible sources: parent input port OR child output port */
 		/* interconnect output can only go to 2 possible sinks: parent output port OR child input port */
-		if (!strcmp(pb_type_name, pb_type->name)) { /* parent */
-			port_ptr = find_pb_type_port(pb_type, port_name);
+		if (!strcmp(pb_type_name, parent_pb->type->name)) { /* parent */
+			port_ptr = find_pb_type_port(parent_pb->type, port_name);
 			assert(port_ptr);
 
 			if (port_no_index) {
@@ -127,19 +126,26 @@ s_pb_graph_pin ***get_interconnect_pb_graph_pins(s_pb_type *pb_type, int mode, c
 			pins[set] = malloc(sizeof(s_pb_graph_pin *) * (*num_pins)[set]);
 
 			for (pin = pin_low; pin <= pin_high; pin++) {
-				pins[set][pin-pin_low] = find_pb_graph_node_pin(node, port_ptr, pin);
+				pins[set][pin-pin_low] = find_pb_pin(parent_pb, port_ptr, pin);
 				assert(pins[set][pin-pin_low]);
 			}
 		} else { /* child */
-			child_pb_type = find_child_pb_type(pb_type, mode, pb_type_name, &pb_type_index);
-			assert(child_pb_type);
+			pb = NULL;
+			for (i = 0; i < child_pbs[0][0].parent->mode->num_children; i++) {
+				if (!strcmp(child_pbs[i][0].type->name, pb_type_name)) {
+					pb = &child_pbs[i][0];
+					pb_type_index = i;
+					break;
+				}
+			}
+			assert(pb);
 
-			port_ptr = find_pb_type_port(child_pb_type, port_name);
+			port_ptr = find_pb_type_port(pb->type, port_name);
 			assert(port_ptr);
 
 			if (pb_type_no_index) {
 				instance_low = 0;
-				instance_high = child_pb_type->num_pbs-1;
+				instance_high = pb->type->num_pbs-1;
 			}
 
 			if (port_no_index) {
@@ -153,7 +159,7 @@ s_pb_graph_pin ***get_interconnect_pb_graph_pins(s_pb_type *pb_type, int mode, c
 			for (instance = instance_low; instance <= instance_high; instance++) {
 				for (pin = pin_low; pin <= pin_high; pin++) {
 					pins[set][(instance-instance_low)*(pin_high-pin_low+1) + pin-pin_low] =
-							find_pb_graph_node_pin(&node->children[mode][pb_type_index][instance], port_ptr, pin);
+							find_pb_pin(&child_pbs[pb_type_index][instance], port_ptr, pin);
 					assert(pins[set][(instance-instance_low)*(pin_high-pin_low+1) + pin-pin_low]);
 				}
 			}
@@ -166,15 +172,10 @@ s_pb_graph_pin ***get_interconnect_pb_graph_pins(s_pb_type *pb_type, int mode, c
 	return pins;
 }
 
-void alloc_and_init_pb_graph_pins(s_pb_graph_node *node)
+void init_pb_pin_connections(s_pb *pb)
 {
-	int i, j;
-	int mode, interconnect, k;
-	int pb_type_index;
-	int port_index;
-	int instance;
-	int pin;
-	s_pb_type *pb_type;
+	int i;
+	int interconnect;
 	int *num_input_pins;
 	int num_input_sets;
 	int *num_output_pins;
@@ -182,51 +183,13 @@ void alloc_and_init_pb_graph_pins(s_pb_graph_node *node)
 	s_pb_graph_pin ***input_pins;
 	s_pb_graph_pin ***output_pins;
 
-	pb_type = node->type;
+	if (pb->mode) {
+		/* connect all pb_type->modes to pb_type->input_ports and pb_type->output_ports */
+		for (interconnect = 0; interconnect < pb->mode->num_interconnects; interconnect++) {
+			input_pins = get_pb_pins(pb, pb->mode->children, pb->mode->interconnects[interconnect].input_string, &num_input_sets, &num_input_pins);
+			output_pins = get_pb_pins(pb, pb->mode->children, pb->mode->interconnects[interconnect].output_string, &num_output_sets, &num_output_pins);
 
-	node->input_pins = malloc(sizeof(s_pb_graph_pin *) * pb_type->num_input_ports);
-	for (i = 0; i < pb_type->num_input_ports; i++) {
-		node->input_pins[i] = malloc(sizeof(s_pb_graph_pin) * pb_type->input_ports[i].num_pins);
-	}
-
-	for (i = 0; i < pb_type->num_input_ports; i++) {
-		for (j = 0; j < pb_type->input_ports[i].num_pins; j++) {
-			node->input_pins[pb_type->input_ports[i].port_number][j].port = &pb_type->input_ports[i];
-			node->input_pins[pb_type->input_ports[i].port_number][j].pin_number = j;
-		}
-	}
-
-	node->output_pins = malloc(sizeof(s_pb_graph_pin *) * pb_type->num_output_ports);
-	for (i = 0; i < pb_type->num_output_ports; i++) {
-		node->output_pins[i] = malloc(sizeof(s_pb_graph_pin) * pb_type->output_ports[i].num_pins);
-	}
-
-	for (i = 0; i < pb_type->num_output_ports; i++) {
-		for (j = 0; j < pb_type->output_ports[i].num_pins; j++) {
-			node->output_pins[pb_type->output_ports[i].port_number][j].port = &pb_type->output_ports[i];
-			node->output_pins[pb_type->output_ports[i].port_number][j].pin_number = j;
-		}
-	}
-
-	node->clock_pins = malloc(sizeof(s_pb_graph_pin *) * pb_type->num_clock_ports);
-	for (i = 0; i < pb_type->num_clock_ports; i++) {
-		node->clock_pins[i] = malloc(sizeof(s_pb_graph_pin) * pb_type->clock_ports[i].num_pins);
-	}
-
-	for (i = 0; i < pb_type->num_clock_ports; i++) {
-		for (j = 0; j < pb_type->clock_ports[i].num_pins; j++) {
-			node->clock_pins[pb_type->clock_ports[i].port_number][j].port = &pb_type->clock_ports[i];
-			node->clock_pins[pb_type->clock_ports[i].port_number][j].pin_number = j;
-		}
-	}
-
-	/* connect all pb_type->modes to pb_type->input_ports and pb_type->output_ports */
-	for (mode = 0; mode < pb_type->num_modes; mode++) {
-		for (interconnect = 0; interconnect < pb_type->modes[mode].num_interconnects; interconnect++) {
-			input_pins = get_interconnect_pb_graph_pins(pb_type, mode, pb_type->modes[mode].interconnects[interconnect].input_string, node, &num_input_sets, &num_input_pins);
-			output_pins = get_interconnect_pb_graph_pins(pb_type, mode, pb_type->modes[mode].interconnects[interconnect].output_string, node, &num_output_sets, &num_output_pins);
-
-			switch (pb_type->modes[mode].interconnects[interconnect].type) {
+			switch (pb->mode->interconnects[interconnect].type) {
 			case DIRECT:
 				assert(num_input_sets == 1 && num_output_sets == 1);
 				break;
@@ -242,45 +205,64 @@ void alloc_and_init_pb_graph_pins(s_pb_graph_node *node)
 				break;
 			}
 		}
-	}
 
-	for (i = 0; i < pb_type->num_input_ports; i++) {
-		//node->input_pins[i][j].edges
+//		for (i = 0; i < pb_type->num_input_ports; i++) {
+//			//pb->input_pins[i][j].edges
+//		}
 	}
 }
 
-void alloc_pb_graph_children(s_pb_graph_node *node)
+/* assume that pb->type and pb->mode has already been initialized by parse_block/parse_top_level_block */
+void init_pb_pins(s_pb *pb)
 {
 	int i, j;
 	s_pb_type *pb_type;
 
-	pb_type = node->type;
-
-	node->children = malloc(sizeof(s_pb_graph_node **) * pb_type->num_modes);
-	for (i = 0; i < pb_type->num_modes; i++) {
-		node->children[i] = malloc(sizeof(s_pb_graph_node *) * pb_type->modes[i].num_children);
-		for (j = 0; j < pb_type->modes[i].num_children; j++) {
-			node->children[i][j] = malloc(sizeof(s_pb_graph_node) * pb_type->modes[i].children[j].num_pbs);
-		}
-	}
-}
-
-void build_pb_graph(s_pb_graph_node *node, s_pb_type *pb_type, s_pb_graph_node *parent_node)
-{
-	int i, j, k;
-
-	node->type = pb_type;
-	node->parent = parent_node;
-
-	alloc_pb_graph_children(node);
-	for (i = 0; i < pb_type->num_modes; i++) {
-		for (j = 0; j < pb_type->modes[i].num_children; j++) {
-			for (k = 0; k < pb_type->modes[i].children[j].num_pbs; k++) {
-				build_pb_graph(&node->children[i][j][k], &pb_type->modes[i].children[j], node);
-			}
-		}
-	}
+	/* we check for pb->children instead of pb->mode because it is possible for the architecture to have children but there's no children in netlist */
+//	if (pb->children) {
+//		for (i = 0; i < pb->mode->num_children; i++) {
+//			for (j = 0; j < pb->mode->children[i].num_pbs; j++) {
+//				init_pb_pins(&pb->children[i][j]);
+//			}
+//		}
+//	}
 
 	/* requires children to be loaded first before pins can be connected */
-	alloc_and_init_pb_graph_pins(node);
+	pb_type = pb->type;
+
+	pb->input_pins = malloc(sizeof(s_pb_graph_pin *) * pb_type->num_input_ports);
+	for (i = 0; i < pb_type->num_input_ports; i++) {
+		pb->input_pins[i] = malloc(sizeof(s_pb_graph_pin) * pb_type->input_ports[i].num_pins);
+	}
+
+	for (i = 0; i < pb_type->num_input_ports; i++) {
+		for (j = 0; j < pb_type->input_ports[i].num_pins; j++) {
+			pb->input_pins[pb_type->input_ports[i].port_number][j].port = &pb_type->input_ports[i];
+			pb->input_pins[pb_type->input_ports[i].port_number][j].pin_number = j;
+		}
+	}
+
+	pb->output_pins = malloc(sizeof(s_pb_graph_pin *) * pb_type->num_output_ports);
+	for (i = 0; i < pb_type->num_output_ports; i++) {
+		pb->output_pins[i] = malloc(sizeof(s_pb_graph_pin) * pb_type->output_ports[i].num_pins);
+	}
+
+	for (i = 0; i < pb_type->num_output_ports; i++) {
+		for (j = 0; j < pb_type->output_ports[i].num_pins; j++) {
+			pb->output_pins[pb_type->output_ports[i].port_number][j].port = &pb_type->output_ports[i];
+			pb->output_pins[pb_type->output_ports[i].port_number][j].pin_number = j;
+		}
+	}
+
+	pb->clock_pins = malloc(sizeof(s_pb_graph_pin *) * pb_type->num_clock_ports);
+	for (i = 0; i < pb_type->num_clock_ports; i++) {
+		pb->clock_pins[i] = malloc(sizeof(s_pb_graph_pin) * pb_type->clock_ports[i].num_pins);
+	}
+
+	for (i = 0; i < pb_type->num_clock_ports; i++) {
+		for (j = 0; j < pb_type->clock_ports[i].num_pins; j++) {
+			pb->clock_pins[pb_type->clock_ports[i].port_number][j].port = &pb_type->clock_ports[i];
+			pb->clock_pins[pb_type->clock_ports[i].port_number][j].pin_number = j;
+		}
+	}
 }

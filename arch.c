@@ -60,7 +60,7 @@ void dump_pb(s_pb_type *pb_type, int level)
 
 void dump_pb_top_type(s_pb_top_type *pb_top_type)
 {
-	dump_pb(&pb_top_type->pb, 0);
+	dump_pb(&pb_top_type->base, 0);
 	printf("capacity: %d\n", pb_top_type->capacity);
 	printf("height: %d\n", pb_top_type->height);
 }
@@ -158,6 +158,54 @@ void parse_mode(xmlNodePtr mode_node, s_mode *mode, s_pb_type *mode_parent)
 	parse_interconnect(interconnect_node, mode);
 }
 
+void parse_primitive(xmlNodePtr pb_type_node, s_pb_type *pb_type)
+{
+	s_mode *mode;
+	s_pb_type *child;
+
+	if (pb_type->class_name) {
+		if (!strcmp(pb_type->class_name, "lut")) {
+			pb_type->num_modes = 1;
+			pb_type->modes = malloc(sizeof(s_mode));
+			mode = &pb_type->modes[0];
+			mode->name = strdup("lut6");
+			mode->children = malloc(sizeof(s_pb_type));
+			mode->num_children = 1;
+			mode->interconnects = NULL;
+			mode->num_interconnects = 0;
+			child = &mode->children[0];
+			child->blif_model = NULL;
+			child->class_name = NULL;
+			child->modes = NULL;
+			child->num_modes = 0;
+			child->num_clock_ports = 0;
+			child->clock_ports = NULL;
+			child->input_ports = malloc(sizeof(s_port));
+			child->input_ports[0].name = strdup("in");
+			child->input_ports[0].port_number = 0;
+			child->input_ports[0].num_pins = pb_type->input_ports[0].num_pins;
+			child->input_ports[0].type = INPUT_PORT;
+			child->num_input_ports = 1;
+			child->output_ports = malloc(sizeof(s_port));
+			child->output_ports[0].name = strdup("out");
+			child->output_ports[0].port_number = 0;
+			child->output_ports[0].num_pins = 1;
+			child->output_ports[0].type = OUTPUT_PORT;
+			child->num_output_ports = 1;
+			child->num_pbs = 1;
+			child->parent = pb_type;
+			child->name = strdup("lut");
+		} else {
+			pb_type->num_modes = 0;
+			pb_type->modes = NULL;
+		}
+	} else {
+		pb_type->num_modes = 0;
+		pb_type->modes = NULL;
+	}
+
+}
+
 void parse_pb_type(xmlNodePtr pb_type_node, s_pb_type *pb_type, s_pb_type *parent)
 {
 	xmlNodePtr mode_node;
@@ -168,6 +216,7 @@ void parse_pb_type(xmlNodePtr pb_type_node, s_pb_type *pb_type, s_pb_type *paren
 
 	pb_type->name = xmlGetProp(pb_type_node, "name");
 	pb_type->blif_model = xmlGetProp(pb_type_node, "blif_model");
+	pb_type->class_name = xmlGetProp(pb_type_node, "class");
 	pb_type->parent = parent;
 	num_pbs = xmlGetProp(pb_type_node, "num_pb");
 	if (num_pbs) {
@@ -176,13 +225,12 @@ void parse_pb_type(xmlNodePtr pb_type_node, s_pb_type *pb_type, s_pb_type *paren
 		pb_type->num_pbs = 1;
 	}
 
-
 	parse_pb_type_ports(pb_type_node, pb_type);
 
 	/* this is a primitive, no more children */
 	if (pb_type->blif_model) {
-		pb_type->num_modes = 0;
-		pb_type->modes = NULL;
+		parse_primitive(pb_type_node, pb_type);
+
 		return;
 	}
 
@@ -193,8 +241,8 @@ void parse_pb_type(xmlNodePtr pb_type_node, s_pb_type *pb_type, s_pb_type *paren
 		mode_node = find_next_element(pb_type_node->children, "mode");
 		count = 0;
 		while (mode_node) {
-			parse_mode(mode_node, &pb_type->modes[count++], pb_type);
-
+			parse_mode(mode_node, &pb_type->modes[count], pb_type);
+			count++;
 			mode_node = find_next_element(mode_node->next, "mode");
 		}
 		assert(count == pb_type->num_modes);
@@ -209,7 +257,7 @@ void parse_pb_type(xmlNodePtr pb_type_node, s_pb_type *pb_type, s_pb_type *paren
 void parse_pb_top_type(xmlNodePtr pb_type_node, s_pb_top_type *pb_top_type)
 {
 	char *str;
-	parse_pb_type(pb_type_node, &pb_top_type->pb, NULL);
+	parse_pb_type(pb_type_node, &pb_top_type->base, NULL);
 	str = xmlGetProp(pb_type_node, "capacity");
 	if (str) {
 		pb_top_type->capacity = atoi(str);

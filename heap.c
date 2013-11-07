@@ -5,6 +5,7 @@
  *      Author: chinhau5
  */
 
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include "heap.h"

@@ -5,6 +5,7 @@
  *      Author: chinhau5
  */
 
+#include <string.h>
 #include "xml_helper.h"
 
 xmlNodePtr find_next_element(xmlNodePtr node, const char *element)

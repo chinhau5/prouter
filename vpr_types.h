@@ -61,8 +61,6 @@ typedef struct _s_rr_node {
 
 typedef struct _s_routing_node {
 	e_routing_node_type type;
-	//int id;
-	struct _s_routing_node *parent;
 	struct _s_list children;
 } s_routing_node;
 
@@ -125,6 +123,7 @@ typedef struct _s_mode {
 typedef struct _s_pb_type {
 	char *name;
 	char *blif_model;
+	char *class_name;
 	int num_pbs;
 
 	struct _s_port *input_ports; /* [port_index][pin_index] */
@@ -142,17 +141,16 @@ typedef struct _s_pb_type {
 } s_pb_type;
 
 typedef struct _s_pb_top_type {
-	struct _s_pb_type pb;
+	struct _s_pb_type base;
 	int height;
 	int capacity;
-
-	struct _s_pb_graph_node *pb_graph_head;
 } s_pb_top_type;
 
 typedef struct _s_pb_graph_pin {
 	s_routing_node base;
 	struct _s_port *port;
 	int pin_number;
+	struct _s_pb_graph_pin *next_pin;
 } s_pb_graph_pin;
 
 typedef struct _s_pb_graph_node {
@@ -167,12 +165,16 @@ typedef struct _s_pb_graph_node {
 } s_pb_graph_node;
 
 typedef struct _s_pb {
+	char *name;
 	struct _s_pb_type *type;
 	struct _s_mode *mode;
 
 	struct _s_pb *parent;
 	struct _s_pb **children; /* [pb_type][pb_type_instance] */
-	//int *num_children;
+
+	struct _s_pb_graph_pin **input_pins; /* [0..num_input_ports-1] [0..num_port_pins-1]*/
+	struct _s_pb_graph_pin **output_pins; /* [0..num_output_ports-1] [0..num_port_pins-1]*/
+	struct _s_pb_graph_pin **clock_pins; /* [0..num_clock_ports-1] [0..num_port_pins-1]*/
 } s_pb;
 
 typedef struct _t_block {

@@ -5,6 +5,7 @@
  *      Author: chinhau5
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <glib.h>
@@ -15,6 +16,7 @@
 #include "arch.h"
 #include "netlist.h"
 #include "pb_graph.h"
+#include "placement.h"
 
 void alloc_and_init_block_grid_positions(t_block ***grid, int nx, int ny, GHashTable *block_positions)
 {
@@ -31,6 +33,7 @@ void alloc_and_init_block_grid_positions(t_block ***grid, int nx, int ny, GHashT
 	for (x = 0; x < nx; x++) {
 		for (y = 0; y < ny; y++) {
 			(*grid)[x][y].name = NULL;
+			(*grid)[x][y].pb = NULL;
 		}
 	}
 
@@ -69,6 +72,7 @@ int main()
 	struct _s_block_position *block_pos;
 	t_block **grid;
 	int x, y;
+	GHashTable *external_nets;
 //	clb.num_output_pins = 10;
 //	clb.output_pins = malloc(10*sizeof(s_list));
 //	wire_specs[0].name = names[0];
@@ -95,9 +99,10 @@ int main()
 //	wire_specs[3].relative_x = 0;
 //	wire_specs[3].relative_y = -1;
 
-	read_placement("ex5p.place", &nx, &ny, &block_positions);
-	alloc_and_init_block_grid_positions(&grid, nx, ny, block_positions);
+	pb_top_types = parse_arch("sample_arch.xml", &num_pb_top_types);
 
+	parse_placement("tseng.place", &nx, &ny, &block_positions);
+	alloc_and_init_block_grid_positions(&grid, nx, ny, block_positions);
 	for (x = 0; x < nx; x++) {
 		for (y = 0; y < ny; y++) {
 			if (grid[x][y].name) {
@@ -105,12 +110,7 @@ int main()
 			}
 		}
 	}
-
-	pb_top_types = parse_arch("sample_arch.xml", &num_pb_top_types);
-//	parse_netlist("tseng.net", &num_blocks, pb_top_types, num_pb_top_types);
-	for (i = 0; i < num_pb_top_types; i++) {
-		build_pb_graph(&pb_graph_head, &pb_top_types[i], NULL);
-	}
+	parse_netlist("tseng.net", grid, block_positions, pb_top_types, num_pb_top_types, &num_blocks, &external_nets);
 
 //	init_heap(&heap);
 //	insert_to_heap(&heap, 10, NULL);
