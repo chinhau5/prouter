@@ -21,14 +21,7 @@ void alloc_and_init_block_grid_positions(t_block ***grid, int nx, int ny, GHashT
 
 	*grid = malloc(sizeof(t_block *) * nx);
 	for (x = 0; x < nx; x++) {
-		(*grid)[x] = malloc(sizeof(t_block) * ny);
-	}
-
-	for (x = 0; x < nx; x++) {
-		for (y = 0; y < ny; y++) {
-			(*grid)[x][y].name = NULL;
-			(*grid)[x][y].pb = NULL;
-		}
+		(*grid)[x] = calloc(ny, sizeof(t_block));
 	}
 
 	g_hash_table_iter_init (&iter, block_positions);
@@ -48,8 +41,6 @@ void parse_placement(const char *filename, int *nx, int *ny, t_block ***grid, GH
 	int block_number;
 	s_block_position *block_position;
 	int x, y, z;
-	int val;
-	int count;
 
 	*block_positions = g_hash_table_new(g_str_hash, g_str_equal);
 
@@ -66,7 +57,6 @@ void parse_placement(const char *filename, int *nx, int *ny, t_block ***grid, GH
 	fgets(buffer, sizeof(buffer), file);
 	fgets(buffer, sizeof(buffer), file);
 
-	count = 0;
 	while (fscanf(file, "%s %d %d %d #%d ", block_name, &x, &y, &z, &block_number) == 5) {
 		block_position = malloc(sizeof(s_block_position));
 		block_position->x = x;
@@ -77,6 +67,7 @@ void parse_placement(const char *filename, int *nx, int *ny, t_block ***grid, GH
 		assert(!g_hash_table_contains(*block_positions, block_name));
 		g_hash_table_insert(*block_positions, strdup(block_name), block_position);
 	}
+
 	fclose(file);
 
 	alloc_and_init_block_grid_positions(grid, *nx, *ny, *block_positions);

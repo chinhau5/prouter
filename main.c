@@ -37,7 +37,6 @@ int main()
 
 	s_pb_top_type *pb_top_types;
 	int num_pb_top_types;
-	s_pb_graph_node pb_graph_head;
 	GHashTable *block_positions;
 	GHashTableIter iter;
 	gpointer key, value;
@@ -45,6 +44,9 @@ int main()
 	t_block **grid;
 	int x, y;
 	GHashTable *external_nets;
+	s_net *net;
+	GSList *litem;
+	s_pb_graph_pin *sink_pin;
 //	clb.num_output_pins = 10;
 //	clb.output_pins = malloc(10*sizeof(s_list));
 //	wire_specs[0].name = names[0];
@@ -74,14 +76,30 @@ int main()
 	pb_top_types = parse_arch("sample_arch.xml", &num_pb_top_types);
 
 	parse_placement("tseng.place", &nx, &ny, &grid, &block_positions);
-	for (x = 0; x < nx; x++) {
-		for (y = 0; y < ny; y++) {
-			if (grid[x][y].name) {
-				printf("grid[%d][%d] x=%d y=%d name=%s\n", x, y, grid[x][y].x, grid[x][y].y, grid[x][y].name);
-			}
-		}
-	}
+//	for (x = 0; x < nx; x++) {
+//		for (y = 0; y < ny; y++) {
+//			if (grid[x][y].name) {
+//				printf("grid[%d][%d] x=%d y=%d name=%s\n", x, y, grid[x][y].x, grid[x][y].y, grid[x][y].name);
+//			}
+//		}
+//	}
 	parse_netlist("tseng.net", grid, block_positions, pb_top_types, num_pb_top_types, &num_blocks, &external_nets);
+
+	g_hash_table_iter_init(&iter, external_nets);
+	while (g_hash_table_iter_next (&iter, &key, &value))
+	  {
+	   	net = value;
+	   	printf("net: %s\n", key);
+
+	   	printf("%s.%s.%s[%d]\n", net->source_pin->pb->name, net->source_pin->port->pb_type->name, net->source_pin->port->name, net->source_pin->pin_number);
+	   	litem = net->sink_pins;
+	   	while (litem) {
+	   		sink_pin = litem->data;
+	   		printf("%s.%s.%s[%d] ", sink_pin->pb->name, sink_pin->port->pb_type->name, sink_pin->port->name, sink_pin->pin_number);
+			litem = litem->next;
+	   	}
+	   	printf("\n\n");
+	  }
 
 //	init_heap(&heap);
 //	insert_to_heap(&heap, 10, NULL);

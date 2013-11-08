@@ -74,7 +74,7 @@ void dump_pb_top_types(s_pb_top_type *pb_top_types, int num_pb_top_types)
 	}
 }
 
-void parse_port(xmlNodePtr pb_type_node, e_port_type port_type, s_port **ports, int *num_ports)
+void parse_port(xmlNodePtr pb_type_node, e_port_type port_type, s_port **ports, int *num_ports, s_pb_type *pb_type)
 {
 	int i;
 	xmlNodePtr port_node;
@@ -86,15 +86,16 @@ void parse_port(xmlNodePtr pb_type_node, e_port_type port_type, s_port **ports, 
 		(*ports)[i].port_number = i;
 		(*ports)[i].name = xmlGetProp(port_node, "name");
 		(*ports)[i].num_pins = atoi(xmlGetProp(port_node, "num_pins"));
+		(*ports)[i].pb_type = pb_type;
 		port_node = find_next_element(port_node->next, port_type_name[port_type]);
 	}
 }
 
 void parse_pb_type_ports(xmlNodePtr pb_type_node, s_pb_type *pb_type)
 {
-	parse_port(pb_type_node, INPUT_PORT, &pb_type->input_ports, &pb_type->num_input_ports);
-	parse_port(pb_type_node, OUTPUT_PORT, &pb_type->output_ports, &pb_type->num_output_ports);
-	parse_port(pb_type_node, CLOCK_PORT, &pb_type->clock_ports, &pb_type->num_clock_ports);
+	parse_port(pb_type_node, INPUT_PORT, &pb_type->input_ports, &pb_type->num_input_ports, pb_type);
+	parse_port(pb_type_node, OUTPUT_PORT, &pb_type->output_ports, &pb_type->num_output_ports, pb_type);
+	parse_port(pb_type_node, CLOCK_PORT, &pb_type->clock_ports, &pb_type->num_clock_ports, pb_type);
 }
 
 void parse_interconnect_type(xmlNodePtr interconnect_node, e_interconnect_type interconnect_type, s_interconnect *interconnect, int *num_interconnects)
@@ -185,12 +186,14 @@ void parse_primitive(xmlNodePtr pb_type_node, s_pb_type *pb_type)
 			child->input_ports[0].port_number = 0;
 			child->input_ports[0].num_pins = pb_type->input_ports[0].num_pins;
 			child->input_ports[0].type = INPUT_PORT;
+			child->input_ports[0].pb_type = child;
 			child->num_input_ports = 1;
 			child->output_ports = malloc(sizeof(s_port));
 			child->output_ports[0].name = strdup("out");
 			child->output_ports[0].port_number = 0;
 			child->output_ports[0].num_pins = 1;
 			child->output_ports[0].type = OUTPUT_PORT;
+			child->output_ports[0].pb_type = child;
 			child->num_output_ports = 1;
 			child->num_pbs = 1;
 			child->parent = pb_type;
@@ -309,7 +312,7 @@ s_pb_top_type *parse_arch(const char *filename, int *num_pb_top_types)
 	complexblocklist_node = find_next_element(root_node->children, "complexblocklist");
 	pb_top_types = parse_complex_block_list(complexblocklist_node, num_pb_top_types);
 
-	dump_pb_top_types(pb_top_types, *num_pb_top_types);
+	//dump_pb_top_types(pb_top_types, *num_pb_top_types);
 
 	return pb_top_types;
 }

@@ -232,37 +232,40 @@ void init_pb_pins(s_pb *pb)
 
 	pb->input_pins = malloc(sizeof(s_pb_graph_pin *) * pb_type->num_input_ports);
 	for (i = 0; i < pb_type->num_input_ports; i++) {
-		pb->input_pins[i] = malloc(sizeof(s_pb_graph_pin) * pb_type->input_ports[i].num_pins);
+		pb->input_pins[i] = calloc(pb_type->input_ports[i].num_pins, sizeof(s_pb_graph_pin));
 	}
 
 	for (i = 0; i < pb_type->num_input_ports; i++) {
 		for (j = 0; j < pb_type->input_ports[i].num_pins; j++) {
 			pb->input_pins[pb_type->input_ports[i].port_number][j].port = &pb_type->input_ports[i];
 			pb->input_pins[pb_type->input_ports[i].port_number][j].pin_number = j;
+			pb->input_pins[pb_type->input_ports[i].port_number][j].pb = pb;
 		}
 	}
 
 	pb->output_pins = malloc(sizeof(s_pb_graph_pin *) * pb_type->num_output_ports);
 	for (i = 0; i < pb_type->num_output_ports; i++) {
-		pb->output_pins[i] = malloc(sizeof(s_pb_graph_pin) * pb_type->output_ports[i].num_pins);
+		pb->output_pins[i] = calloc(pb_type->output_ports[i].num_pins, sizeof(s_pb_graph_pin));
 	}
 
 	for (i = 0; i < pb_type->num_output_ports; i++) {
 		for (j = 0; j < pb_type->output_ports[i].num_pins; j++) {
 			pb->output_pins[pb_type->output_ports[i].port_number][j].port = &pb_type->output_ports[i];
 			pb->output_pins[pb_type->output_ports[i].port_number][j].pin_number = j;
+			pb->output_pins[pb_type->output_ports[i].port_number][j].pb = pb;
 		}
 	}
 
 	pb->clock_pins = malloc(sizeof(s_pb_graph_pin *) * pb_type->num_clock_ports);
 	for (i = 0; i < pb_type->num_clock_ports; i++) {
-		pb->clock_pins[i] = malloc(sizeof(s_pb_graph_pin) * pb_type->clock_ports[i].num_pins);
+		pb->clock_pins[i] = calloc(pb_type->clock_ports[i].num_pins, sizeof(s_pb_graph_pin));
 	}
 
 	for (i = 0; i < pb_type->num_clock_ports; i++) {
 		for (j = 0; j < pb_type->clock_ports[i].num_pins; j++) {
 			pb->clock_pins[pb_type->clock_ports[i].port_number][j].port = &pb_type->clock_ports[i];
 			pb->clock_pins[pb_type->clock_ports[i].port_number][j].pin_number = j;
+			pb->clock_pins[pb_type->clock_ports[i].port_number][j].pb = pb;
 		}
 	}
 }

@@ -9,6 +9,7 @@
 #define VPR_TYPES_H_
 
 #include <stdbool.h>
+#include <glib.h>
 #include "list.h"
 
 typedef enum e_block_pin_type { BLOCK_INPUT, BLOCK_OUTPUT } e_block_pin_type;
@@ -109,6 +110,8 @@ typedef struct _s_port {
 	int port_number;
 	char *name;
 	int num_pins;
+
+	struct _s_pb_type *pb_type;
 } s_port;
 
 typedef struct _s_mode {
@@ -148,21 +151,12 @@ typedef struct _s_pb_top_type {
 
 typedef struct _s_pb_graph_pin {
 	s_routing_node base;
+	struct _s_pb *pb;
 	struct _s_port *port;
 	int pin_number;
-	struct _s_pb_graph_pin *next_pin;
+	struct _s_pb_graph_pin *next_pin; /* used to trace output pin to its primitive driver */
+	char *net_name;
 } s_pb_graph_pin;
-
-typedef struct _s_pb_graph_node {
-	struct _s_pb_type *type;
-
-	struct _s_pb_graph_pin **input_pins; /* [0..num_input_ports-1] [0..num_port_pins-1]*/
-	struct _s_pb_graph_pin **output_pins; /* [0..num_output_ports-1] [0..num_port_pins-1]*/
-	struct _s_pb_graph_pin **clock_pins; /* [0..num_clock_ports-1] [0..num_port_pins-1]*/
-
-	struct _s_pb_graph_node ***children; /* [0..num_modes-1][0..num_pb_type_in_mode-1][0..num_pb-1] */
-	struct _s_pb_graph_node *parent;
-} s_pb_graph_node;
 
 typedef struct _s_pb {
 	char *name;
@@ -200,5 +194,10 @@ typedef struct _s_block_position {
 	int y;
 	int z;
 } s_block_position;
+
+typedef struct _s_net {
+	struct _s_pb_graph_pin *source_pin;
+	GSList *sink_pins;
+} s_net;
 
 #endif /* VPR_TYPES_H_ */

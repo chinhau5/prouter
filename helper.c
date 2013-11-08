@@ -13,8 +13,19 @@
 
 void tokenize(const char *str, const char *delim, s_list *tokens)
 {
+#define TOKENIZE_BUFFER_SIZE 256
 	char *token;
 	char *copy;
+//	static int current_buffer_size;
+//
+//	if (copy && strlen(str)+1 > current_buffer_size) {
+//		current_buffer_size += TOKENIZE_BUFFER_SIZE;
+//		free(copy);
+//		copy = malloc(current_buffer_size);
+//	} else {
+//		current_buffer_size = TOKENIZE_BUFFER_SIZE;
+//		copy = malloc(current_buffer_size);
+//	}
 
 	copy = strdup(str);
 
