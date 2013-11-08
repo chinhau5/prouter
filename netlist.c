@@ -39,6 +39,7 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *nets)
 	int num_sets;
 	int *num_pins;
 	int pin;
+	int i, j;
 
 	inputs_node = find_next_element(block_node->children, "inputs");
 
@@ -74,9 +75,16 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *nets)
 
 	outputs_node = find_next_element(block_node->children, "outputs");
 
-	if (pb->children) {
+	/* output */
+	/* pins = get_pb_pins(pb, pb->children, strtok(token->data, "->"), &num_sets, &num_pins); */
 
-	}
+//	if (pb->children) {
+//		for (i = 0; i < pb->mode->num_children; i++) {
+//			for (j = 0; j < pb->children[i][0].type->num_pbs; j++) {
+//				parse_block_ports
+//			}
+//		}
+//	}
 }
 
 s_pb_type *get_pb_type_from_instance_name(s_pb_type *pb_types, int num_pb_types, const char *instance_name, int *pb_type_index)
@@ -103,10 +111,6 @@ s_mode *get_pb_type_mode(const char *mode_name, s_pb_type *pb_type, int *mode_in
 	}
 	return NULL;
 }
-
-typedef struct _s_hash_table_net {
-
-} s_hash_table_net;
 
 void parse_block_common(s_pb *pb, xmlNodePtr block_node, GHashTable *external_nets, s_pb *parent);
 
@@ -146,7 +150,7 @@ void parse_top_level_block(t_block **grid, GHashTable *external_nets, GHashTable
 	grid[position->x][position->y].pb[position->z].name = block_name;
 	parse_block_common(&grid[position->x][position->y].pb[position->z], block_node, external_nets, NULL);
 
-	parse_block_ports(block_node, &grid[position->x][position->y].pb[position->z], NULL);
+	//parse_block_ports(block_node, &grid[position->x][position->y].pb[position->z], NULL);
 }
 
 void parse_block(s_pb **pbs, GHashTable *external_nets, xmlNodePtr block_node, s_pb_type *pb_types, int num_pb_types, s_pb *parent)

@@ -18,34 +18,6 @@
 #include "pb_graph.h"
 #include "placement.h"
 
-void alloc_and_init_block_grid_positions(t_block ***grid, int nx, int ny, GHashTable *block_positions)
-{
-	int x, y;
-	GHashTableIter iter;
-	gpointer key, value;
-	s_block_position *block_position;
-
-	*grid = malloc(sizeof(t_block *) * nx);
-	for (x = 0; x < nx; x++) {
-		(*grid)[x] = malloc(sizeof(t_block) * ny);
-	}
-
-	for (x = 0; x < nx; x++) {
-		for (y = 0; y < ny; y++) {
-			(*grid)[x][y].name = NULL;
-			(*grid)[x][y].pb = NULL;
-		}
-	}
-
-	g_hash_table_iter_init (&iter, block_positions);
-	while (g_hash_table_iter_next (&iter, &key, &value)) {
-		block_position = value;
-		(*grid)[block_position->x][block_position->y].x = block_position->x;
-		(*grid)[block_position->x][block_position->y].y = block_position->y;
-		(*grid)[block_position->x][block_position->y].name = key;
-	}
-}
-
 int main()
 {
 	s_wire_details wire_specs[4];
@@ -101,8 +73,7 @@ int main()
 
 	pb_top_types = parse_arch("sample_arch.xml", &num_pb_top_types);
 
-	parse_placement("tseng.place", &nx, &ny, &block_positions);
-	alloc_and_init_block_grid_positions(&grid, nx, ny, block_positions);
+	parse_placement("tseng.place", &nx, &ny, &grid, &block_positions);
 	for (x = 0; x < nx; x++) {
 		for (y = 0; y < ny; y++) {
 			if (grid[x][y].name) {
