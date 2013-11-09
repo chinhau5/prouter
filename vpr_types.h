@@ -154,7 +154,7 @@ typedef struct _s_pb_graph_pin {
 	struct _s_pb *pb;
 	struct _s_port *port;
 	int pin_number;
-	struct _s_pb_graph_pin *next_pin; /* used to trace output pin to its primitive driver */
+	GSList *next_pins; /* used to trace output pin to its primitive driver */
 	char *net_name;
 } s_pb_graph_pin;
 
@@ -169,6 +169,8 @@ typedef struct _s_pb {
 	struct _s_pb_graph_pin **input_pins; /* [0..num_input_ports-1] [0..num_port_pins-1]*/
 	struct _s_pb_graph_pin **output_pins; /* [0..num_output_ports-1] [0..num_port_pins-1]*/
 	struct _s_pb_graph_pin **clock_pins; /* [0..num_clock_ports-1] [0..num_port_pins-1]*/
+
+	struct _s_switch_box *switch_box;
 } s_pb;
 
 typedef struct _t_block {

@@ -73,7 +73,11 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *external_net
 	int pin;
 	int i, j;
 	s_net *net;
-	s_pb_graph_pin *primitive_pin;
+	s_pb_graph_pin *top_level_output_pin;
+	GSList *next_pins;
+	GSList *list_item;
+	bool impossible_to_find_top_level_pin;
+	int count;
 
 	inputs_node = find_next_element(block_node->children, "inputs");
 
@@ -107,7 +111,7 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *external_net
 				} else {
 					pins = get_pb_pins(pb->parent, pb->parent->children, strtok(token->data, "->"), &num_sets, &num_pins);
 					assert(num_sets == 1 && num_pins[0] == 1);
-					//pins[0][0]->next_pins = g_slist_prepend(pins[0][0]->next_pins, &pb->input_pins[port->port_number][pin]);
+					pins[0][0]->next_pins = g_slist_prepend(pins[0][0]->next_pins, &pb->input_pins[port->port_number][pin]);
 //					printf("INPUT %s %X->%X ", token->data, pins[0][0], &pb->input_pins[port->port_number][pin]);
 //					printf("%s %s.%s[%d]->", pins[0][0]->pb->name, pins[0][0]->pb->type->name, pins[0][0]->port->name, pins[0][0]->pin_number);
 //					printf("%s %s.%s[%d]\n", pb->input_pins[port->port_number][pin].pb->name, pb->input_pins[port->port_number][pin].pb->type->name, pb->input_pins[port->port_number][pin].port->name, pb->input_pins[port->port_number][pin].pin_number);
@@ -138,7 +142,7 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *external_net
 			pin = 0;
 			while (token) {
 				if (!strcmp(token->data, "open")) {
-					pb->output_pins[port->port_number][pin].next_pin = NULL;
+					//pb->output_pins[port->port_number][pin].next_pin = NULL;
 				} else if (!pb->mode) { /* primitive output */
 //					if (g_hash_table_contains(external_nets, token->data)) {
 //						net = g_hash_table_lookup(external_nets, token->data);
@@ -157,11 +161,43 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *external_net
 //						lol_pin = lol_pin->next_pins;
 //					}
 //					net->source_pin = prev;
-					pb->output_pins[port->port_number][pin].net_name = strdup(token->data);
+					next_pins = pb->output_pins[port->port_number][pin].next_pins;
+					impossible_to_find_top_level_pin = false;
+					while (next_pins && !impossible_to_find_top_level_pin) {
+						impossible_to_find_top_level_pin = true;
+						count = 0;
+						while (next_pins && impossible_to_find_top_level_pin) { /* iterate through all pins of the current level (BFS) */
+							top_level_output_pin = next_pins->data;
+							if (top_level_output_pin->port->type == OUTPUT_PORT) {
+								impossible_to_find_top_level_pin = false;
+								count++;
+							}
+							next_pins = next_pins->next;
+						}
+						assert(impossible_to_find_top_level_pin || count == 1);
+						next_pins = top_level_output_pin->next_pins;
+					}
+
+					if (!impossible_to_find_top_level_pin) {
+						assert(!top_level_output_pin->pb->parent); /* make sure it's a top level pin */
+						if (g_hash_table_contains(external_nets, token->data)) {
+							net = g_hash_table_lookup(external_nets, token->data);
+						} else {
+							net = malloc(sizeof(s_net));
+							net->source_pin = NULL;
+							net->sink_pins = NULL;
+							g_hash_table_insert(external_nets, token->data, net);
+						}
+						assert(!net->source_pin);
+						net->source_pin = top_level_output_pin;
+					}
+
+					//pb->output_pins[port->port_number][pin].net_name = strdup(token->data);
 				} else {
 					pins = get_pb_pins(pb, pb->children, strtok(token->data, "->"), &num_sets, &num_pins);
 					assert(num_sets == 1 && num_pins[0] == 1);
-					pb->output_pins[port->port_number][pin].next_pin = pins[0][0];
+					//pb->output_pins[port->port_number][pin].next_pin = pins[0][0];
+					pins[0][0]->next_pins = g_slist_prepend(pins[0][0]->next_pins, &pb->output_pins[port->port_number][pin]);
 //					printf("%X->%X ", pins[0][0], &pb->output_pins[port->port_number][pin]);
 //					printf("%s %s.%s[%d]->", pins[0][0]->pb->name, pins[0][0]->pb->type->name, pins[0][0]->port->name, pins[0][0]->pin_number);
 //					printf("%s %s.%s[%d]\n", pb->output_pins[port->port_number][pin].pb->name, pb->output_pins[port->port_number][pin].pb->type->name, pb->output_pins[port->port_number][pin].port->name, pb->output_pins[port->port_number][pin].pin_number);
@@ -174,29 +210,29 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *external_net
 		}
 	}
 
-	if (!pb->parent) {
-		for (i = 0; i < pb->type->num_output_ports; i++) {
-			for (j = 0; j < pb->type->output_ports[i].num_pins; j++) {
-				if (pb->output_pins[i][j].next_pin) {
-					primitive_pin = &pb->output_pins[i][j];
-					while (primitive_pin->next_pin) {
-						primitive_pin = primitive_pin->next_pin;
-					}
-
-					if (g_hash_table_contains(external_nets, primitive_pin->net_name)) {
-						net = g_hash_table_lookup(external_nets, primitive_pin->net_name);
-					} else {
-						net = malloc(sizeof(s_net));
-						net->source_pin = NULL;
-						net->sink_pins = NULL;
-						g_hash_table_insert(external_nets, primitive_pin->net_name, net);
-					}
-					assert(!net->source_pin);
-					net->source_pin = &pb->output_pins[i][j];
-				}
-			}
-		}
-	}
+//	if (!pb->parent) {
+//		for (i = 0; i < pb->type->num_output_ports; i++) {
+//			for (j = 0; j < pb->type->output_ports[i].num_pins; j++) {
+//				if (pb->output_pins[i][j].next_pin) {
+//					primitive_pin = &pb->output_pins[i][j];
+//					while (primitive_pin->next_pin) {
+//						primitive_pin = primitive_pin->next_pin;
+//					}
+//
+//					if (g_hash_table_contains(external_nets, primitive_pin->net_name)) {
+//						net = g_hash_table_lookup(external_nets, primitive_pin->net_name);
+//					} else {
+//						net = malloc(sizeof(s_net));
+//						net->source_pin = NULL;
+//						net->sink_pins = NULL;
+//						g_hash_table_insert(external_nets, primitive_pin->net_name, net);
+//					}
+//					assert(!net->source_pin);
+//					net->source_pin = &pb->output_pins[i][j];
+//				}
+//			}
+//		}
+//	}
 }
 
 s_pb *parse_block(s_pb **pbs, xmlNodePtr block_node, s_pb_type *pb_types, int num_pb_types, s_pb *parent)
@@ -368,7 +404,7 @@ void parse_netlist(const char *filename, t_block **grid, GHashTable *block_posit
 		parse_top_level_block(grid, block_queue, block_positions, block_node, pb_top_types, num_pb_top_types);
 
 		while (!g_queue_is_empty(block_queue)) {
-			pair = g_queue_pop_head(block_queue);
+			pair = g_queue_pop_tail(block_queue); /* block queue must be traversed in breadth first order */
 			parse_block_ports(pair->block_node, pair->pb, *external_nets);
 			free(pair);
 		}

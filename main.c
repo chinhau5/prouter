@@ -86,20 +86,19 @@ int main()
 	parse_netlist("tseng.net", grid, block_positions, pb_top_types, num_pb_top_types, &num_blocks, &external_nets);
 
 	g_hash_table_iter_init(&iter, external_nets);
-	while (g_hash_table_iter_next (&iter, &key, &value))
-	  {
-	   	net = value;
-	   	printf("net: %s\n", key);
+	while (g_hash_table_iter_next (&iter, &key, &value)) {
+		net = value;
+		printf("net: %s\n", key);
 
-	   	printf("%s.%s.%s[%d]\n", net->source_pin->pb->name, net->source_pin->port->pb_type->name, net->source_pin->port->name, net->source_pin->pin_number);
-	   	litem = net->sink_pins;
-	   	while (litem) {
-	   		sink_pin = litem->data;
-	   		printf("%s.%s.%s[%d] ", sink_pin->pb->name, sink_pin->port->pb_type->name, sink_pin->port->name, sink_pin->pin_number);
+		printf("%s.%s.%s[%d]\n", net->source_pin->pb->name, net->source_pin->port->pb_type->name, net->source_pin->port->name, net->source_pin->pin_number);
+		litem = net->sink_pins;
+		while (litem) {
+			sink_pin = litem->data;
+			printf("%s.%s.%s[%d] ", sink_pin->pb->name, sink_pin->port->pb_type->name, sink_pin->port->name, sink_pin->pin_number);
 			litem = litem->next;
-	   	}
-	   	printf("\n\n");
-	  }
+		}
+		printf("\n\n");
+	}
 
 //	init_heap(&heap);
 //	insert_to_heap(&heap, 10, NULL);
