@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <glib.h>
+#include <assert.h>
+#include <string.h>
 #include "list.h"
 #include "vpr_types.h"
 #include "rr_graph.h"
@@ -20,7 +22,7 @@
 
 int main()
 {
-	s_wire_details wire_specs[4];
+	s_wire_type wire_types[4];
 	int num_wires = 20;
 	s_track *tracks;
 	int track, channel, segment;
@@ -49,33 +51,45 @@ int main()
 	s_pb_graph_pin *sink_pin;
 //	clb.num_output_pins = 10;
 //	clb.output_pins = malloc(10*sizeof(s_list));
-//	wire_specs[0].name = names[0];
-//	wire_specs[0].id = 0;
-//	wire_specs[0].freq = 1;
-//	wire_specs[0].relative_x = 1;
-//	wire_specs[0].relative_y = 0;
-//
-//	wire_specs[1].name = names[0];
-//	wire_specs[1].id = 1;
-//	wire_specs[1].freq = 1;
-//	wire_specs[1].relative_x = 0;
-//	wire_specs[1].relative_y = 1;
-//
-//	wire_specs[2].name = names[2];
-//	wire_specs[2].id = 2;
-//	wire_specs[2].freq = 1;
-//	wire_specs[2].relative_x = -1;
-//	wire_specs[2].relative_y = 0;
-//
-//	wire_specs[3].name = names[2];
-//	wire_specs[3].id = 3;
-//	wire_specs[3].freq = 1;
-//	wire_specs[3].relative_x = 0;
-//	wire_specs[3].relative_y = -1;
+	int num_wire_types;
+
+	wire_types[0].name = names[0];
+	wire_types[0].freq = 1;
+	wire_types[0].relative_x = 1;
+	wire_types[0].relative_y = 0;
+	wire_types[0].shape = 0;
+	wire_types[0].num_shapes = 1;
+	wire_types[0].direction = WIRE_E;
+
+	wire_types[1].name = names[0];
+	wire_types[1].freq = 1;
+	wire_types[1].relative_x = 0;
+	wire_types[1].relative_y = 1;
+	wire_types[1].shape = 0;
+	wire_types[1].num_shapes = 1;
+	wire_types[1].direction = WIRE_N;
+
+	wire_types[2].name = names[2];
+	wire_types[2].freq = 1;
+	wire_types[2].relative_x = -1;
+	wire_types[2].relative_y = 0;
+	wire_types[2].shape = 0;
+	wire_types[2].num_shapes = 1;
+	wire_types[2].direction = WIRE_W;
+
+	wire_types[3].name = names[2];
+	wire_types[3].freq = 1;
+	wire_types[3].relative_x = 0;
+	wire_types[3].relative_y = -1;
+	wire_types[3].shape = 0;
+	wire_types[3].num_shapes = 1;
+	wire_types[3].direction = WIRE_S;
+
+	num_wire_types = sizeof(wire_types)/sizeof(s_wire_type);
 
 	pb_top_types = parse_arch("sample_arch.xml", &num_pb_top_types);
 
-	parse_placement("tseng.place", &nx, &ny, &grid, &block_positions);
+	parse_placement("tseng.place", pb_top_types, num_pb_top_types, &nx, &ny, &grid, &block_positions);
 //	for (x = 0; x < nx; x++) {
 //		for (y = 0; y < ny; y++) {
 //			if (grid[x][y].name) {
@@ -99,6 +113,9 @@ int main()
 		}
 		printf("\n\n");
 	}
+
+	update_wire_count(wire_types, num_wire_types, &num_wires);
+	init_block_wires(grid, nx, ny, wire_types, num_wire_types, num_wires);
 
 //	init_heap(&heap);
 //	insert_to_heap(&heap, 10, NULL);

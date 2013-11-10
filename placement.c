@@ -11,29 +11,62 @@
 #include <string.h>
 #include "vpr_types.h"
 #include "placement.h"
+#include "pb_graph.h"
 
-void alloc_and_init_block_grid_positions(t_block ***grid, int nx, int ny, GHashTable *block_positions)
+void alloc_and_init_grid(t_block ***grid, int nx, int ny, s_pb_top_type *pb_top_types, int num_pb_top_types)
 {
 	int x, y;
-	GHashTableIter iter;
-	gpointer key, value;
-	s_block_position *block_position;
+	int i;
+	s_pb_top_type *io_type;
+	s_pb_top_type *clb_type;
+	s_pb *pb;
 
 	*grid = malloc(sizeof(t_block *) * nx);
 	for (x = 0; x < nx; x++) {
 		(*grid)[x] = calloc(ny, sizeof(t_block));
 	}
 
-	g_hash_table_iter_init (&iter, block_positions);
-	while (g_hash_table_iter_next (&iter, &key, &value)) {
-		block_position = value;
-		(*grid)[block_position->x][block_position->y].x = block_position->x;
-		(*grid)[block_position->x][block_position->y].y = block_position->y;
-		(*grid)[block_position->x][block_position->y].name = key;
+	io_type = NULL;
+	for (i = 0; i < num_pb_top_types && !io_type; i++) {
+		if (!strcmp(pb_top_types[i].base.name, "io")) {
+			io_type = &pb_top_types[i];
+		}
+	}
+	clb_type = NULL;
+	for (i = 0; i < num_pb_top_types && !clb_type; i++) {
+		if (!strcmp(pb_top_types[i].base.name, "clb")) {
+			clb_type = &pb_top_types[i];
+		}
+	}
+	assert(clb_type && io_type);
+
+	for (x = 0; x < nx; x++) {
+		for (y = 0; y < ny; y++) {
+			(*grid)[x][y].x = x;
+			(*grid)[x][y].y = y;
+
+			if (x == 0 || x == nx-1 || y == 0 || y == ny-1) { /* IO tiles */
+				(*grid)[x][y].pb = calloc(io_type->capacity, sizeof(s_pb));
+				for (i = 0; i < io_type->capacity; i++) {
+					pb = &(*grid)[x][y].pb[i];
+					pb->type = &io_type->base;
+					init_pb_pins(pb);
+				}
+				(*grid)[x][y].capacity = io_type->capacity;
+			} else {
+				(*grid)[x][y].pb = calloc(clb_type->capacity, sizeof(s_pb));
+				for (i = 0; i < clb_type->capacity; i++) {
+					pb = &(*grid)[x][y].pb[i];
+					pb->type = &clb_type->base;
+					init_pb_pins(pb);
+				}
+				(*grid)[x][y].capacity = clb_type->capacity;
+			}
+		}
 	}
 }
 
-void parse_placement(const char *filename, int *nx, int *ny, t_block ***grid, GHashTable **block_positions)
+void parse_placement(const char *filename, s_pb_top_type *pb_top_types, int num_pb_top_types, int *nx, int *ny, t_block ***grid, GHashTable **block_positions)
 {
 	FILE *file;
 	char buffer[256];
@@ -51,6 +84,8 @@ void parse_placement(const char *filename, int *nx, int *ny, t_block ***grid, GH
 	fscanf(file, "Array size : %d x %d logic blocks", nx, ny);
 	*nx += 2;
 	*ny += 2;
+
+	alloc_and_init_grid(grid, *ny, *ny, pb_top_types, num_pb_top_types);
 
 	fgets(buffer, sizeof(buffer), file);
 	fgets(buffer, sizeof(buffer), file);
@@ -70,5 +105,5 @@ void parse_placement(const char *filename, int *nx, int *ny, t_block ***grid, GH
 
 	fclose(file);
 
-	alloc_and_init_block_grid_positions(grid, *nx, *ny, *block_positions);
+	//alloc_and_init_block_grid_positions(grid, *nx, *ny, *block_positions);
 }

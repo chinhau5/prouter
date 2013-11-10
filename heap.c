@@ -10,14 +10,14 @@
 #include <string.h>
 #include "heap.h"
 
-void init_heap(s_heap *heap)
+void heap_init(s_heap *heap)
 {
 	heap->buffer = malloc(sizeof(s_heap_item) * INITIAL_HEAP_SIZE);
 	heap->size = INITIAL_HEAP_SIZE;
 	heap->tail = -1;
 }
 
-void insert_to_heap(s_heap *heap, float cost, void *data)
+void heap_push(s_heap *heap, float cost, void *data)
 {
 	int current;
 	int parent;
@@ -43,19 +43,19 @@ void insert_to_heap(s_heap *heap, float cost, void *data)
 	}
 }
 
-bool get_heap_head(s_heap *heap, s_heap_item *output)
+void *heap_pop(s_heap *heap)
 {
 	int current;
 	int child;
 	bool empty;
 	bool done;
 	s_heap_item temp;
+	void *output;
 
 	if (heap->tail < 0) {
-		empty = true;
+		output = NULL;
 	} else {
-		empty = false;
-		*output = heap->buffer[0];
+		output = heap->buffer[0].data;
 
 		heap->buffer[0] = heap->buffer[heap->tail];
 		heap->tail--;
@@ -77,5 +77,10 @@ bool get_heap_head(s_heap *heap, s_heap_item *output)
 		}
 	}
 
-	return !empty;
+	return output;
+}
+
+bool heap_is_empty(s_heap *heap)
+{
+	return heap->tail < 0;
 }

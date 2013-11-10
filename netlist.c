@@ -300,22 +300,21 @@ void parse_top_level_block(t_block **grid, GQueue *block_queue, GHashTable *bloc
 	assert(instance_name_and_index);
 	instance_name = tokenize_name_and_index(instance_name_and_index, &instance_low, &instance_high, &instance_no_index);
 	assert(instance_low == instance_high && !instance_no_index);
+	pb_top_type = NULL;
 	for (i = 0; i < num_pb_top_types; i++) {
 		if (!strcmp(pb_top_types[i].base.name, instance_name)) {
 			pb_top_type = &pb_top_types[i];
 			break;
 		}
 	}
+	assert(pb_top_type);
 	block_name = xmlGetProp(block_node, "name");
 	assert(block_name);
 	position = g_hash_table_lookup(block_positions, block_name);
-	if (!grid[position->x][position->y].pb) {
-		grid[position->x][position->y].pb = calloc(pb_top_type->capacity, sizeof(s_pb));
-	}
 	assert(position->z < pb_top_type->capacity);
 	pb = &grid[position->x][position->y].pb[position->z];
 
-	pb->type = &pb_top_type->base;
+	assert(pb->type == &pb_top_type->base);
 	pb->name = block_name;
 	mode_name = xmlGetProp(block_node, "mode");
 	if (mode_name) {
@@ -378,6 +377,11 @@ void parse_top_level_block(t_block **grid, GQueue *block_queue, GHashTable *bloc
 
 	//parse_block_ports(block_node, &grid[position->x][position->y].pb[position->z], NULL);
 }
+
+//void init_grid(t_block **grid, int nx, int ny, s_pb_top_type *pb_top_types, int num_pb_top_types)
+//{
+//
+//}
 
 void parse_netlist(const char *filename, t_block **grid, GHashTable *block_positions, s_pb_top_type *pb_top_types, int num_pb_top_types,
 		int *num_blocks, GHashTable **external_nets)

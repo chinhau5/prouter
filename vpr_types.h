@@ -31,16 +31,19 @@ typedef enum _e_wire_node_type {
 
 enum { INC_DIRECTION, DEC_DIRECTION, NUM_DIRECTIONS };
 
-typedef struct _s_wire_details {
-	int id;
+typedef struct _s_wire_type {
 	char *name;
 	int freq;
-	int num_wires; /* determined at runtime */
 	bool is_horizontal;
 	int relative_x;
 	int relative_y;
-	e_wire_direction direction; /* determined at runtime */
-} s_wire_details;
+
+	/* determined at runtime */
+	int num_wires;
+	e_wire_direction direction;
+	int shape; /* each direction with num_types has type ranging from 0 to num_types-1 */
+	int num_shapes; /* how many different types of shapes does this direction have */
+} s_wire_type;
 
 typedef struct _s_track {
 	int start;
@@ -62,15 +65,15 @@ typedef struct _s_rr_node {
 
 typedef struct _s_routing_node {
 	e_routing_node_type type;
-	struct _s_list children;
+	int id;
+	GSList *children;
 } s_routing_node;
 
 typedef struct _s_wire {
 	s_routing_node base;
-	struct _s_wire_details *details;
+	struct _s_wire_type *type;
 	int sb_x;
 	int sb_y;
-	struct _s_list fanin;
 } s_wire;
 
 typedef struct _s_pin {
@@ -78,9 +81,7 @@ typedef struct _s_pin {
 	char *name;
 } s_pin;
 
-typedef struct _s_switch_box {
-	struct _s_wire *starting_wires;
-	int num_starting_wires;
+typedef struct _s_switch_box_lookup {
 	struct _s_wire ***starting_wires_by_direction_and_type[NUM_WIRE_DIRECTIONS];
 	int num_starting_wire_types_by_direction[NUM_WIRE_DIRECTIONS];
 	int *num_starting_wires_by_direction_and_type[NUM_WIRE_DIRECTIONS]; /* [direction][type] */
@@ -90,9 +91,16 @@ typedef struct _s_switch_box {
 	struct _s_wire ***ending_wires_by_direction_and_type[NUM_WIRE_DIRECTIONS];
 	int num_ending_wire_types_by_direction[NUM_WIRE_DIRECTIONS];
 	int *num_ending_wires_by_direction_and_type[NUM_WIRE_DIRECTIONS]; /* [direction][type] */
+} s_switch_box_lookup;
 
-	s_wire_details *wire_details;
-	int num_wire_details;
+typedef struct _s_switch_box {
+	struct _s_wire *starting_wires;
+	int num_starting_wires;
+	GSList *starting_wire_directions;
+
+	struct _s_wire **ending_wires;
+	int num_ending_wires;
+	GSList *ending_wire_directions;
 } s_switch_box;
 
 typedef enum _e_interconnect_type { DIRECT, COMPLETE, MUX, NUM_INTERCONNECT_TYPE  } e_interconnect_type;
@@ -154,8 +162,7 @@ typedef struct _s_pb_graph_pin {
 	struct _s_pb *pb;
 	struct _s_port *port;
 	int pin_number;
-	GSList *next_pins; /* used to trace output pin to its primitive driver */
-	char *net_name;
+	GSList *next_pins;
 } s_pb_graph_pin;
 
 typedef struct _s_pb {
@@ -169,8 +176,6 @@ typedef struct _s_pb {
 	struct _s_pb_graph_pin **input_pins; /* [0..num_input_ports-1] [0..num_port_pins-1]*/
 	struct _s_pb_graph_pin **output_pins; /* [0..num_output_ports-1] [0..num_port_pins-1]*/
 	struct _s_pb_graph_pin **clock_pins; /* [0..num_clock_ports-1] [0..num_port_pins-1]*/
-
-	struct _s_switch_box *switch_box;
 } s_pb;
 
 typedef struct _t_block {
@@ -179,6 +184,8 @@ typedef struct _t_block {
 	char *name;
 
 	struct _s_pb *pb;
+	int capacity; /* specific for IO blocks */
+	struct _s_switch_box *switch_box;
 } t_block;
 
 typedef struct _s_physical_block_instance {
