@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <glib.h>
 #include <assert.h>
+#include <limits.h>
 #include "list.h"
 #include "vpr_types.h"
 #include "route.h"
@@ -29,7 +30,7 @@ float get_cost(s_routing_node *source, s_routing_node *destination)
 
 	switch (source->type) {
 	case IPIN:
-		cost = 0;
+		assert(0); /* we would have finished dijkstra by this time */
 		break;
 	case WIRE:
 		source_wire = source;
@@ -37,7 +38,8 @@ float get_cost(s_routing_node *source, s_routing_node *destination)
 		cost = abs(source_wire->x - destination_wire->x) + abs(source_wire->y - destination_wire->y); /* manhattan distance */
 		break;
 	case OPIN:
-		assert(0); /* we would have finished dijkstra by this time */
+		assert(destination->type == WIRE);
+		cost = 0;
 		break;
 	default:
 		assert(0); /* unknown routing node type */
@@ -46,7 +48,7 @@ float get_cost(s_routing_node *source, s_routing_node *destination)
 	return cost;
 }
 
-void route_net(s_net *net)
+void route_net(s_net *net, int num_routing_nodes)
 {
 	s_heap heap;
 	s_routing_node *current, *neighbour, *sink;
@@ -54,16 +56,23 @@ void route_net(s_net *net)
 	GSList *sink_list_item, *children_list_item;
 	bool found;
 	float cost;
+	int i;
+
+	route_details = calloc(num_routing_nodes, sizeof(s_route_details));
+	for (i = 0; i < num_routing_nodes; i++) {
+		route_details[i].min_cost = INT_MAX;
+	}
 
 	heap_init(&heap);
 	heap_push(&heap, 0, net->source_pin);
+	route_details[net->source_pin->base.id].min_cost = 0;
 
 	sink_list_item = net->sink_pins;
 	while (sink_list_item) {
 		sink = sink_list_item->data;
 
 		found = false;
-		while (!heap_is_empty(&heap) || !found) {
+		while (!heap_is_empty(&heap) && !found) {
 			current = heap_pop(&heap);
 
 			if (current == sink) {
@@ -73,6 +82,7 @@ void route_net(s_net *net)
 				children_list_item = current->children;
 				while (children_list_item) {
 					neighbour = children_list_item->data;
+					assert(neighbour);
 
 					cost = route_details[current->id].min_cost + get_cost(current, neighbour);
 					if (cost < route_details[neighbour->id].min_cost) {
@@ -85,6 +95,9 @@ void route_net(s_net *net)
 				}
 			}
 		}
+		assert(found);
 		sink_list_item = sink_list_item->next;
 	}
+
+	free(route_details);
 }

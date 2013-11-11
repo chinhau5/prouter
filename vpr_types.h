@@ -20,7 +20,7 @@ typedef enum e_block_type { CLB, X_CHANNEL, Y_CHANNEL, SWITCH_BOX } e_block_type
 
 typedef enum e_rr_type { CHANX, CHANY, RR_TYPE_END } e_rr_type;
 
-typedef enum _e_routing_node_type {	OPIN, IPIN, WIRE } e_routing_node_type;
+typedef enum _e_routing_node_type {	CLK_PIN, OPIN, IPIN, WIRE } e_routing_node_type;
 
 typedef enum _e_wire_direction {
 	WIRE_E, WIRE_W, WIRE_N, WIRE_S,
@@ -93,6 +93,7 @@ typedef struct _s_switch_box {
 	GHashTable **starting_shape_to_index;
 	GList *starting_wire_directions;
 	GList **starting_wire_shapes;
+	int **num_starting_wires_by_type; /* [direction][shape] */
 
 	struct _s_wire **ending_wires;
 	int num_ending_wires;
@@ -100,6 +101,7 @@ typedef struct _s_switch_box {
 	GList **ending_wire_shapes;
 	GHashTable *ending_direction_to_index;
 	GHashTable **ending_shape_to_index;
+	int **num_ending_wires_by_type;
 } s_switch_box;
 
 typedef enum _e_interconnect_type { DIRECT, COMPLETE, MUX, NUM_INTERCONNECT_TYPE  } e_interconnect_type;

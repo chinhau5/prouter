@@ -8,13 +8,22 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <assert.h>
 #include "heap.h"
 
 void heap_init(s_heap *heap)
 {
-	heap->buffer = malloc(sizeof(s_heap_item) * INITIAL_HEAP_SIZE);
+	heap->buffer = calloc(INITIAL_HEAP_SIZE, sizeof(s_heap_item));
 	heap->size = INITIAL_HEAP_SIZE;
 	heap->tail = -1;
+}
+
+void print_heap(s_heap *heap)
+{
+	int i;
+	for (i = 0; i <= heap->tail; i++) {
+		printf("%5d ", heap->buffer[i].data);
+	}
 }
 
 void heap_push(s_heap *heap, float cost, void *data)
@@ -22,22 +31,29 @@ void heap_push(s_heap *heap, float cost, void *data)
 	int current;
 	int parent;
 	s_heap_item temp;
-
-	if (heap->tail >= heap->size) {
-		heap->size *= 2;
-		heap->buffer = realloc(heap->buffer, sizeof(s_heap_item) * heap->size);
-	}
+	bool done;
 
 	current = ++heap->tail;
+
+	if (heap->tail >= heap->size) {
+		heap->size += INITIAL_HEAP_SIZE;
+		heap->buffer = realloc(heap->buffer, sizeof(s_heap_item) * heap->size);
+	}
 	heap->buffer[current].cost = cost;
 	heap->buffer[current].data = data;
 
-	while (current > 0) {
+	done = false;
+	while (current > 0 && !done) {
 		parent = (current-1)/2;
+		if (parent < 0) {
+			assert(false);
+		}
 		if (heap->buffer[current].cost < heap->buffer[parent].cost) {
 			temp = heap->buffer[parent];
 			heap->buffer[parent] = heap->buffer[current];
 			heap->buffer[current] = temp;
+		} else {
+			done = true;
 		}
 		current = parent;
 	}
@@ -45,7 +61,7 @@ void heap_push(s_heap *heap, float cost, void *data)
 
 void *heap_pop(s_heap *heap)
 {
-	int current;
+	int parent;
 	int child;
 	bool empty;
 	bool done;
@@ -59,20 +75,22 @@ void *heap_pop(s_heap *heap)
 
 		heap->buffer[0] = heap->buffer[heap->tail];
 		heap->tail--;
-		current = 0;
+		parent = 0;
+		child = 2*parent+1;
 		done = false;
-		while (current < heap->tail && !done) {
-			child = 2*current+1;
-			if (heap->buffer[current].cost < heap->buffer[child].cost) {
+		while (child <= heap->tail && !done) {
+			if (child+1 <= heap->tail && heap->buffer[child+1].cost < heap->buffer[child].cost) {
 				child++;
 			}
-			if (heap->buffer[current].cost < heap->buffer[child].cost) {
+
+			if (heap->buffer[child].cost > heap->buffer[parent].cost) {
 				done = true;
 			} else {
-				temp = heap->buffer[current];
-				heap->buffer[current] = heap->buffer[child];
+				temp = heap->buffer[parent];
+				heap->buffer[parent] = heap->buffer[child];
 				heap->buffer[child] = temp;
-				current = child;
+				parent = child;
+				child = 2*parent+1;
 			}
 		}
 	}

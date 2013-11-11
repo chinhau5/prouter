@@ -19,6 +19,7 @@
 #include "netlist.h"
 #include "pb_graph.h"
 #include "placement.h"
+#include "route.h"
 
 int main()
 {
@@ -28,7 +29,7 @@ int main()
 	int track, channel, segment;
 	int start;
 	int nx, ny;
-	int i;
+	int i, j;
 	char *names[] = { "SINGLE", "DOUBLE", "SINGLE_R", "DOUBLE_R" };
 	s_block clb;
 	s_rr_node *****rr_node_lookup;
@@ -52,6 +53,8 @@ int main()
 //	clb.num_output_pins = 10;
 //	clb.output_pins = malloc(10*sizeof(s_list));
 	int num_wire_types;
+	int global_routing_node_id;
+	int previous;
 
 	wire_types[0].name = names[0];
 	wire_types[0].freq = 1;
@@ -99,9 +102,33 @@ int main()
 //	}
 	parse_netlist("tseng.net", grid, block_positions, pb_top_types, num_pb_top_types, &num_blocks, &external_nets);
 
+//	heap_init(&heap);
+
+
+//	for (i = 0; i < 100000; i++) {
+//		j = rand() % 100000 + 1;
+//		//printf("%5d ", j);
+//		heap_push(&heap, j, j);
+//	}
+//	printf("\n");
+//	//print_heap(&heap);
+//
+//	previous = -1;
+//		while (i = (int)heap_pop(&heap)) {
+//			assert(i >= previous);
+//			//printf("item: %5d\n", i);
+//			previous = i;
+//		}
+
+	update_wire_count(wire_types, num_wire_types, &num_wires);
+	init_block_wires(grid, nx, ny, wire_types, num_wire_types, num_wires, &global_routing_node_id);
+
+	printf("num global routing nodes: %d\n", global_routing_node_id);
+
 	g_hash_table_iter_init(&iter, external_nets);
 	while (g_hash_table_iter_next (&iter, &key, &value)) {
 		net = value;
+
 		printf("net: %s\n", key);
 
 		printf("%s.%s.%s[%d]\n", net->source_pin->pb->name, net->source_pin->port->pb_type->name, net->source_pin->port->name, net->source_pin->pin_number);
@@ -112,22 +139,12 @@ int main()
 			litem = litem->next;
 		}
 		printf("\n\n");
+
+		route_net(net, global_routing_node_id);
 	}
 
-	update_wire_count(wire_types, num_wire_types, &num_wires);
-	init_block_wires(grid, nx, ny, wire_types, num_wire_types, num_wires);
 
-//	init_heap(&heap);
-//	insert_to_heap(&heap, 10, NULL);
-//	insert_to_heap(&heap, 9, NULL);
-//	insert_to_heap(&heap, 8, NULL);
-//
-//	insert_to_heap(&heap, 7, NULL);
-//	insert_to_heap(&heap, 6, NULL);
-//
-//	while (get_heap_head(&heap, &item)) {
-//		printf("item: %f\n", item.cost);
-//	}
+
 
 //	update_wire_count(wire_specs, 4, &num_wires);
 //	update_wire_type(wire_specs, 4);

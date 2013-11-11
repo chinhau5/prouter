@@ -8,8 +8,6 @@
 #ifndef ROUTE_H_
 #define ROUTE_H_
 
-typedef struct _s_bounding_box {
-
-};
+void route_net(s_net *net, int num_routing_nodes);
 
 #endif /* ROUTE_H_ */
