@@ -22,7 +22,7 @@ typedef enum e_rr_type { CHANX, CHANY, RR_TYPE_END } e_rr_type;
 
 typedef enum _e_routing_node_type {	OPIN, IPIN, WIRE } e_routing_node_type;
 
-typedef enum _e_wire_node_type {
+typedef enum _e_wire_direction {
 	WIRE_E, WIRE_W, WIRE_N, WIRE_S,
 	WIRE_EN, WIRE_ES, WIRE_WN, WIRE_WS,
 	WIRE_NE, WIRE_NW, WIRE_SE, WIRE_SW,
@@ -30,6 +30,11 @@ typedef enum _e_wire_node_type {
 } e_wire_direction;
 
 enum { INC_DIRECTION, DEC_DIRECTION, NUM_DIRECTIONS };
+
+typedef struct _s_value_index_pair {
+	int value;
+	int index;
+} s_value_index_pair;
 
 typedef struct _s_wire_type {
 	char *name;
@@ -42,7 +47,6 @@ typedef struct _s_wire_type {
 	int num_wires;
 	e_wire_direction direction;
 	int shape; /* each direction with num_types has type ranging from 0 to num_types-1 */
-	int num_shapes; /* how many different types of shapes does this direction have */
 } s_wire_type;
 
 typedef struct _s_track {
@@ -72,8 +76,9 @@ typedef struct _s_routing_node {
 typedef struct _s_wire {
 	s_routing_node base;
 	struct _s_wire_type *type;
-	int sb_x;
-	int sb_y;
+	int track;
+	int x;
+	int y;
 } s_wire;
 
 typedef struct _s_pin {
@@ -81,26 +86,20 @@ typedef struct _s_pin {
 	char *name;
 } s_pin;
 
-typedef struct _s_switch_box_lookup {
-	struct _s_wire ***starting_wires_by_direction_and_type[NUM_WIRE_DIRECTIONS];
-	int num_starting_wire_types_by_direction[NUM_WIRE_DIRECTIONS];
-	int *num_starting_wires_by_direction_and_type[NUM_WIRE_DIRECTIONS]; /* [direction][type] */
-
-	struct _s_wire **ending_wires;
-	int num_ending_wires;
-	struct _s_wire ***ending_wires_by_direction_and_type[NUM_WIRE_DIRECTIONS];
-	int num_ending_wire_types_by_direction[NUM_WIRE_DIRECTIONS];
-	int *num_ending_wires_by_direction_and_type[NUM_WIRE_DIRECTIONS]; /* [direction][type] */
-} s_switch_box_lookup;
-
 typedef struct _s_switch_box {
 	struct _s_wire *starting_wires;
 	int num_starting_wires;
-	GSList *starting_wire_directions;
+	GHashTable *starting_direction_to_index;
+	GHashTable **starting_shape_to_index;
+	GList *starting_wire_directions;
+	GList **starting_wire_shapes;
 
 	struct _s_wire **ending_wires;
 	int num_ending_wires;
-	GSList *ending_wire_directions;
+	GList *ending_wire_directions;
+	GList **ending_wire_shapes;
+	GHashTable *ending_direction_to_index;
+	GHashTable **ending_shape_to_index;
 } s_switch_box;
 
 typedef enum _e_interconnect_type { DIRECT, COMPLETE, MUX, NUM_INTERCONNECT_TYPE  } e_interconnect_type;

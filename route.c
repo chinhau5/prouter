@@ -34,7 +34,7 @@ float get_cost(s_routing_node *source, s_routing_node *destination)
 	case WIRE:
 		source_wire = source;
 		destination_wire = destination;
-		cost = abs(source_wire->sb_x - destination_wire->sb_x) + abs(source_wire->sb_y - destination_wire->sb_y); /* manhattan distance */
+		cost = abs(source_wire->x - destination_wire->x) + abs(source_wire->y - destination_wire->y); /* manhattan distance */
 		break;
 	case OPIN:
 		assert(0); /* we would have finished dijkstra by this time */

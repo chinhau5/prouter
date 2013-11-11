@@ -58,7 +58,7 @@ int main()
 	wire_types[0].relative_x = 1;
 	wire_types[0].relative_y = 0;
 	wire_types[0].shape = 0;
-	wire_types[0].num_shapes = 1;
+	//wire_types[0].num_shapes = 1;
 	wire_types[0].direction = WIRE_E;
 
 	wire_types[1].name = names[0];
@@ -66,7 +66,7 @@ int main()
 	wire_types[1].relative_x = 0;
 	wire_types[1].relative_y = 1;
 	wire_types[1].shape = 0;
-	wire_types[1].num_shapes = 1;
+	//wire_types[1].num_shapes = 1;
 	wire_types[1].direction = WIRE_N;
 
 	wire_types[2].name = names[2];
@@ -74,7 +74,7 @@ int main()
 	wire_types[2].relative_x = -1;
 	wire_types[2].relative_y = 0;
 	wire_types[2].shape = 0;
-	wire_types[2].num_shapes = 1;
+	//wire_types[2].num_shapes = 1;
 	wire_types[2].direction = WIRE_W;
 
 	wire_types[3].name = names[2];
@@ -82,7 +82,7 @@ int main()
 	wire_types[3].relative_x = 0;
 	wire_types[3].relative_y = -1;
 	wire_types[3].shape = 0;
-	wire_types[3].num_shapes = 1;
+	//wire_types[3].num_shapes = 1;
 	wire_types[3].direction = WIRE_S;
 
 	num_wire_types = sizeof(wire_types)/sizeof(s_wire_type);
