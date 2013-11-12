@@ -50,6 +50,7 @@ void alloc_and_init_grid(t_block ***grid, int nx, int ny, s_pb_top_type *pb_top_
 				for (i = 0; i < io_type->capacity; i++) {
 					pb = &(*grid)[x][y].pb[i];
 					pb->type = &io_type->base;
+					pb->block = &(*grid)[x][y];
 					init_pb_pins(pb);
 				}
 				(*grid)[x][y].capacity = io_type->capacity;
@@ -58,6 +59,7 @@ void alloc_and_init_grid(t_block ***grid, int nx, int ny, s_pb_top_type *pb_top_
 				for (i = 0; i < clb_type->capacity; i++) {
 					pb = &(*grid)[x][y].pb[i];
 					pb->type = &clb_type->base;
+					pb->block = &(*grid)[x][y];
 					init_pb_pins(pb);
 				}
 				(*grid)[x][y].capacity = clb_type->capacity;

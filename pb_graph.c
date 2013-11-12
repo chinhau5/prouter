@@ -238,6 +238,10 @@ void init_pb_pins(s_pb *pb)
 	for (i = 0; i < pb_type->num_input_ports; i++) {
 		for (j = 0; j < pb_type->input_ports[i].num_pins; j++) {
 			pb->input_pins[pb_type->input_ports[i].port_number][j].base.type = IPIN;
+			if (pb->block) {
+				pb->input_pins[pb_type->input_ports[i].port_number][j].base.x = pb->block->x;
+				pb->input_pins[pb_type->input_ports[i].port_number][j].base.y = pb->block->y;
+			}
 			pb->input_pins[pb_type->input_ports[i].port_number][j].port = &pb_type->input_ports[i];
 			pb->input_pins[pb_type->input_ports[i].port_number][j].pin_number = j;
 			pb->input_pins[pb_type->input_ports[i].port_number][j].pb = pb;
@@ -252,6 +256,10 @@ void init_pb_pins(s_pb *pb)
 	for (i = 0; i < pb_type->num_output_ports; i++) {
 		for (j = 0; j < pb_type->output_ports[i].num_pins; j++) {
 			pb->output_pins[pb_type->output_ports[i].port_number][j].base.type = OPIN;
+			if (pb->block) {
+				pb->output_pins[pb_type->output_ports[i].port_number][j].base.x = pb->block->x;
+				pb->output_pins[pb_type->output_ports[i].port_number][j].base.y = pb->block->y;
+			}
 			pb->output_pins[pb_type->output_ports[i].port_number][j].port = &pb_type->output_ports[i];
 			pb->output_pins[pb_type->output_ports[i].port_number][j].pin_number = j;
 			pb->output_pins[pb_type->output_ports[i].port_number][j].pb = pb;
@@ -266,6 +274,10 @@ void init_pb_pins(s_pb *pb)
 	for (i = 0; i < pb_type->num_clock_ports; i++) {
 		for (j = 0; j < pb_type->clock_ports[i].num_pins; j++) {
 			pb->clock_pins[pb_type->clock_ports[i].port_number][j].base.type = CLK_PIN;
+			if (pb->block) {
+				pb->clock_pins[pb_type->clock_ports[i].port_number][j].base.x = pb->block->x;
+				pb->clock_pins[pb_type->clock_ports[i].port_number][j].base.y = pb->block->y;
+			}
 			pb->clock_pins[pb_type->clock_ports[i].port_number][j].port = &pb_type->clock_ports[i];
 			pb->clock_pins[pb_type->clock_ports[i].port_number][j].pin_number = j;
 			pb->clock_pins[pb_type->clock_ports[i].port_number][j].pb = pb;

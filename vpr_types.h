@@ -70,6 +70,8 @@ typedef struct _s_rr_node {
 typedef struct _s_routing_node {
 	e_routing_node_type type;
 	int id;
+	int x;
+	int y;
 	GSList *children;
 } s_routing_node;
 
@@ -77,14 +79,15 @@ typedef struct _s_wire {
 	s_routing_node base;
 	struct _s_wire_type *type;
 	int track;
-	int x;
-	int y;
 } s_wire;
 
-typedef struct _s_pin {
+typedef struct _s_pb_graph_pin {
 	s_routing_node base;
-	char *name;
-} s_pin;
+	struct _s_pb *pb;
+	struct _s_port *port;
+	int pin_number;
+	GSList *next_pins; /* net */
+} s_pb_graph_pin;
 
 typedef struct _s_switch_box {
 	struct _s_wire *starting_wires;
@@ -158,19 +161,12 @@ typedef struct _s_pb_top_type {
 	int capacity;
 } s_pb_top_type;
 
-typedef struct _s_pb_graph_pin {
-	s_routing_node base;
-	struct _s_pb *pb;
-	struct _s_port *port;
-	int pin_number;
-	GSList *next_pins;
-} s_pb_graph_pin;
-
 typedef struct _s_pb {
 	char *name;
 	struct _s_pb_type *type;
 	struct _s_mode *mode;
 
+	struct _t_block *block; /* only valid for top level pbs */
 	struct _s_pb *parent;
 	struct _s_pb **children; /* [pb_type][pb_type_instance] */
 

@@ -45,9 +45,6 @@ void heap_push(s_heap *heap, float cost, void *data)
 	done = false;
 	while (current > 0 && !done) {
 		parent = (current-1)/2;
-		if (parent < 0) {
-			assert(false);
-		}
 		if (heap->buffer[current].cost < heap->buffer[parent].cost) {
 			temp = heap->buffer[parent];
 			heap->buffer[parent] = heap->buffer[current];

@@ -50,6 +50,7 @@ int main()
 	s_net *net;
 	GSList *litem;
 	s_pb_graph_pin *sink_pin;
+	FILE *dot_file;
 //	clb.num_output_pins = 10;
 //	clb.output_pins = malloc(10*sizeof(s_list));
 	int num_wire_types;
@@ -125,6 +126,8 @@ int main()
 
 	printf("num global routing nodes: %d\n", global_routing_node_id);
 
+	dot_file = fopen("graph.dot", "w");
+
 	g_hash_table_iter_init(&iter, external_nets);
 	while (g_hash_table_iter_next (&iter, &key, &value)) {
 		net = value;
@@ -140,6 +143,8 @@ int main()
 		}
 		printf("\n\n");
 
+		create_dot_file(&net->source_pin->base, dot_file, 1);
+		fclose(dot_file);
 		route_net(net, global_routing_node_id);
 	}
 
