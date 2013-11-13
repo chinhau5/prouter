@@ -143,8 +143,8 @@ int main()
 		}
 		printf("\n\n");
 
-		create_dot_file(&net->source_pin->base, dot_file, 1);
-		fclose(dot_file);
+		//create_dot_file(&net->source_pin->base, dot_file, 1);
+		//fclose(dot_file);
 		route_net(net, global_routing_node_id);
 	}
 
