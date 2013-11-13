@@ -18,6 +18,11 @@ void heap_init(s_heap *heap)
 	heap->tail = -1;
 }
 
+void heap_clear(s_heap *heap)
+{
+	heap->tail = -1;
+}
+
 void print_heap(s_heap *heap)
 {
 	int i;

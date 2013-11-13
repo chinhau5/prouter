@@ -105,6 +105,8 @@ void print_wire(s_wire *wire, float cost, float expected_cost)
 	 printf("WIRE id=%d cost=%2f e_cost=%2f [%d,%d] -> [%d,%d]", wire->base.id, cost, expected_cost, wire->base.x, wire->base.y, wire->base.x+wire->type->relative_x, wire->base.y+wire->type->relative_y);
 }
 
+//#define VERBOSE
+
 void route_net(s_net *net, int num_routing_nodes)
 {
 	s_heap heap;
@@ -145,10 +147,16 @@ void route_net(s_net *net, int num_routing_nodes)
 		route_tree_item = route_tree;
 		while (route_tree_item) {
 			node = route_tree_item->data;
-			route_details[node->id].expected_cost = get_expected_cost(node, sink);
+			route_details[node->id].expected_cost = route_details[node->id].min_cost + get_expected_cost(node, sink);
 			heap_push(&heap, route_details[node->id].expected_cost, node);
 			route_tree_item = route_tree_item->next;
 		}
+
+//		for (i = 0; i < num_routing_nodes; i++) {
+//			if (i != net->source_pin->base.id) {
+//				route_details[i].min_cost = FLT_MAX;
+//			}
+//		}
 
 		found = false;
 		while (!heap_is_empty(&heap) && !found) {
@@ -172,11 +180,13 @@ void route_net(s_net *net, int num_routing_nodes)
 				route_tree = g_list_prepend(route_tree, current);
 				prev_node = route_details[current->id].prev_node;
 				while (prev_node) {
+					if (prev_node != net->source_pin) {
 					route_tree = g_list_prepend(route_tree, prev_node);
 					if (prev_node->type == WIRE) {
 						printf("trace: "); print_wire(prev_node, route_details[prev_node->id].min_cost, route_details[prev_node->id].expected_cost); printf("\n");
 					} else {
 						printf("trace: source id=%d [%d,%d]\n", prev_node->id, prev_node->x, prev_node->y);
+					}
 					}
 					prev_node = route_details[prev_node->id].prev_node;
 				}
@@ -188,24 +198,36 @@ void route_net(s_net *net, int num_routing_nodes)
 					assert(neighbour);
 
 					cost = route_details[current->id].min_cost + get_cost(current, neighbour);
-					expected_cost = get_expected_cost(neighbour, sink);
+					expected_cost = cost + get_expected_cost(neighbour, sink);
 
-					route_details[neighbour->id].expected_cost = expected_cost;
-
-					if (cost < route_details[neighbour->id].min_cost) {
-						route_details[neighbour->id].min_cost = cost;
-						route_details[neighbour->id].prev_node = current;
-					}
-
-					/* DEBUG */
+					//route_details[neighbour->id].expected_cost = expected_cost;
 #ifdef VERBOSE
-					if (neighbour->type == WIRE) { printf("\t neighbour: "); print_wire(neighbour, cost, expected_cost); printf("\n"); }
-					else if (neighbour->type == IPIN) { printf("\t neighbour: IPIN id=%d [%d,%d] cost=%2f e_cost=%2f\n", neighbour->id, neighbour->x, neighbour->y, cost, expected_cost); }
+					if (neighbour->type == WIRE) { printf("\t neighbour: "); print_wire(neighbour, cost, expected_cost); printf(" "); }
+					else if (neighbour->type == IPIN) { printf("\t neighbour: IPIN id=%d [%d,%d] cost=%2f e_cost=%2f ", neighbour->id, neighbour->x, neighbour->y, cost, expected_cost); }
 #endif
 
-					if (!route_details[neighbour->id].visited) {
+					if (cost < route_details[neighbour->id].min_cost && !route_details[neighbour->id].visited) {
+						route_details[neighbour->id].min_cost = cost;
+						route_details[neighbour->id].expected_cost = expected_cost;
+						route_details[neighbour->id].prev_node = current;
 						heap_push(&heap, expected_cost, neighbour);
+#ifdef VERBOSE
+						printf("ADDED\n");
+#endif
+					} else {
+#ifdef VERBOSE
+						printf("\n");
+#endif
 					}
+
+
+
+					/* DEBUG */
+
+
+					//if () {
+
+					//}
 
 					children_list_item = children_list_item->next;
 				}
@@ -215,7 +237,16 @@ void route_net(s_net *net, int num_routing_nodes)
 
 		for (i = 0; i < num_routing_nodes; i++) {
 			route_details[i].visited = false;
+			if (i != net->source_pin->base.id) {
+				route_details[i].min_cost = FLT_MAX;
+				route_details[i].expected_cost = FLT_MAX;
+			}
+//			if (i != net->source_pin->base.id) {
+//				route_details[i].min_cost = FLT_MAX;
+//			}
 		}
+
+		heap_clear(&heap);
 
 		sink_list_item = sink_list_item->next;
 	}
