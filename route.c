@@ -121,8 +121,9 @@ void route_net(s_net *net, int num_routing_nodes)
 	float expected_cost;
 	int i;
 	int count;
-	GList *route_tree;
-	GList *route_tree_item;
+	GHashTable *route_tree;
+	GHashTableIter route_tree_iter;
+	int node_id;
 
 	heap_init(&heap);
 
@@ -136,7 +137,8 @@ void route_net(s_net *net, int num_routing_nodes)
 	printf("source: x=%d y=%d type=%d\n", net->source_pin->base.x, net->source_pin->base.y, net->source_pin->base.type);
 	route_details[net->source_pin->base.id].min_cost = 0;
 
-	route_tree = g_list_prepend(NULL, net->source_pin);
+	route_tree = g_hash_table_new(g_direct_hash, g_direct_equal);
+	g_hash_table_insert(route_tree, net->source_pin->base.id, net->source_pin);
 
 	count = 0;
 	sink_list_item = net->sink_pins;
@@ -144,19 +146,17 @@ void route_net(s_net *net, int num_routing_nodes)
 		sink = sink_list_item->data;
 		printf("sink: id=%d x=%d y=%d type=%d\n", sink->id, sink->x, sink->y, sink->type);
 
-		route_tree_item = route_tree;
-		while (route_tree_item) {
-			node = route_tree_item->data;
+		g_hash_table_iter_init(&route_tree_iter, route_tree);
+		while (g_hash_table_iter_next (&route_tree_iter, &node_id, &node)) {
+			assert(node_id == node->id);
 			route_details[node->id].expected_cost = route_details[node->id].min_cost + get_expected_cost(node, sink);
+#ifdef VERBOSE
+			if (node->type == WIRE) { printf("rt: "); print_wire(node, route_details[node->id].min_cost, route_details[node->id].expected_cost); printf("\n"); }
+			else if (node->type == IPIN) { printf("rt: IPIN id=%d [%d,%d]\n", node->id, node->x, node->y); }
+			else if (node->type == OPIN) { printf("rt: OPIN id=%d [%d,%d] cost=%2f e_cost=%2f\n", node->id, node->x, node->y, route_details[node->id].min_cost, route_details[node->id].expected_cost); }
+#endif
 			heap_push(&heap, route_details[node->id].expected_cost, node);
-			route_tree_item = route_tree_item->next;
 		}
-
-//		for (i = 0; i < num_routing_nodes; i++) {
-//			if (i != net->source_pin->base.id) {
-//				route_details[i].min_cost = FLT_MAX;
-//			}
-//		}
 
 		found = false;
 		while (!heap_is_empty(&heap) && !found) {
@@ -169,7 +169,7 @@ void route_net(s_net *net, int num_routing_nodes)
 #ifdef VERBOSE
 			if (current->type == WIRE) { printf("current: "); print_wire(current, route_details[current->id].min_cost, route_details[current->id].expected_cost); printf("\n"); }
 			else if (current->type == IPIN) { printf("current: IPIN id=%d [%d,%d]\n", current->id, current->x, current->y); }
-			else if (current->type == OPIN) { printf("current: OPIN id=%d [%d,%d] e_cost=%2f\n", current->id, current->x, current->y, route_details[current->id].expected_cost); }
+			else if (current->type == OPIN) { printf("current: OPIN id=%d [%d,%d] cost=%2f e_cost=%2f\n", current->id, current->x, current->y, route_details[current->id].min_cost, route_details[current->id].expected_cost); }
 #endif
 			if (current == sink) {
 				found = true;
@@ -177,18 +177,17 @@ void route_net(s_net *net, int num_routing_nodes)
 				/* DEBUG */
 				printf("trace: sink id=%d x=%d y=%d type=%d\n", current->id, current->x, current->y, current->type);
 
-				route_tree = g_list_prepend(route_tree, current);
-				prev_node = route_details[current->id].prev_node;
-				while (prev_node) {
-					if (prev_node != net->source_pin) {
-					route_tree = g_list_prepend(route_tree, prev_node);
-					if (prev_node->type == WIRE) {
-						printf("trace: "); print_wire(prev_node, route_details[prev_node->id].min_cost, route_details[prev_node->id].expected_cost); printf("\n");
+				node = current;
+				while (node) {
+					if (!g_hash_table_contains(route_tree, node->id)) {
+						g_hash_table_insert(route_tree, node->id, node);
+					}
+					if (node->type == WIRE) {
+						printf("trace: "); print_wire(node, route_details[node->id].min_cost, route_details[node->id].expected_cost); printf("\n");
 					} else {
-						printf("trace: source id=%d [%d,%d]\n", prev_node->id, prev_node->x, prev_node->y);
+						printf("trace: source id=%d [%d,%d]\n", node->id, node->x, node->y);
 					}
-					}
-					prev_node = route_details[prev_node->id].prev_node;
+					node = route_details[node->id].prev_node;
 				}
 			} else {
 				/* for all neighbour */
@@ -200,10 +199,10 @@ void route_net(s_net *net, int num_routing_nodes)
 					cost = route_details[current->id].min_cost + get_cost(current, neighbour);
 					expected_cost = cost + get_expected_cost(neighbour, sink);
 
-					//route_details[neighbour->id].expected_cost = expected_cost;
 #ifdef VERBOSE
 					if (neighbour->type == WIRE) { printf("\t neighbour: "); print_wire(neighbour, cost, expected_cost); printf(" "); }
 					else if (neighbour->type == IPIN) { printf("\t neighbour: IPIN id=%d [%d,%d] cost=%2f e_cost=%2f ", neighbour->id, neighbour->x, neighbour->y, cost, expected_cost); }
+					printf("min_cost: %f ", route_details[neighbour->id].min_cost);
 #endif
 
 					if (cost < route_details[neighbour->id].min_cost && !route_details[neighbour->id].visited) {
@@ -220,15 +219,6 @@ void route_net(s_net *net, int num_routing_nodes)
 #endif
 					}
 
-
-
-					/* DEBUG */
-
-
-					//if () {
-
-					//}
-
 					children_list_item = children_list_item->next;
 				}
 			}
@@ -237,13 +227,10 @@ void route_net(s_net *net, int num_routing_nodes)
 
 		for (i = 0; i < num_routing_nodes; i++) {
 			route_details[i].visited = false;
-			if (i != net->source_pin->base.id) {
+			if (!g_hash_table_contains(route_tree, i)) {
 				route_details[i].min_cost = FLT_MAX;
 				route_details[i].expected_cost = FLT_MAX;
 			}
-//			if (i != net->source_pin->base.id) {
-//				route_details[i].min_cost = FLT_MAX;
-//			}
 		}
 
 		heap_clear(&heap);
