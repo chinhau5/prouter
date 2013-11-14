@@ -351,7 +351,7 @@ void count_ending_wires(t_block **grid, int nx, int ny)
 	}
 }
 
-void alloc_and_init_starting_wire_array(s_switch_box *switch_box, s_wire_type *wire_types, int num_wire_types, int x, int y, int nx, int ny, int *global_routing_node_id)
+void alloc_and_init_starting_wire_array(s_switch_box *switch_box, s_wire_type *wire_types, int num_wire_types, int x, int y, int nx, int ny, int *global_routing_node_id, GHashTable *id_to_node)
 {
 	int i;
 	int wire;
@@ -368,13 +368,18 @@ void alloc_and_init_starting_wire_array(s_switch_box *switch_box, s_wire_type *w
 
 			for (wire = 0; wire < wire_types[i].num_wires; wire++) {
 				switch_box->starting_wires[switch_box->num_starting_wires].base.type = WIRE;
-				switch_box->starting_wires[switch_box->num_starting_wires].base.id = (*global_routing_node_id)++;
+				switch_box->starting_wires[switch_box->num_starting_wires].base.id = *global_routing_node_id;
 				switch_box->starting_wires[switch_box->num_starting_wires].base.children = NULL;
 
 				switch_box->starting_wires[switch_box->num_starting_wires].type = &wire_types[i];
 				switch_box->starting_wires[switch_box->num_starting_wires].track = switch_box->num_starting_wires_by_type[direction_index][shape_index];
 				switch_box->starting_wires[switch_box->num_starting_wires].base.x = x;
 				switch_box->starting_wires[switch_box->num_starting_wires].base.y = y;
+
+				assert(!g_hash_table_contains(id_to_node, *global_routing_node_id));
+				g_hash_table_insert(id_to_node, *global_routing_node_id, &switch_box->starting_wires[switch_box->num_starting_wires]);
+
+				(*global_routing_node_id)++;
 
 				switch_box->num_starting_wires++;
 				switch_box->num_starting_wires_by_type[direction_index][shape_index]++;
@@ -426,10 +431,10 @@ void alloc_and_init_ending_wire_array(t_block **blocks, int nx, int ny)
 	}
 }
 
-void init_starting_wires(t_block *block, int nx, int ny, s_wire_type *wire_types, int num_wire_types, int num_wires_per_clb, int *global_routing_node_id)
+void init_starting_wires(t_block *block, int nx, int ny, s_wire_type *wire_types, int num_wire_types, int num_wires_per_clb, int *global_routing_node_id, GHashTable *id_to_node)
 {
 	count_starting_wires(block->switch_box, wire_types, num_wire_types, block->x, block->y, nx, ny);
-	alloc_and_init_starting_wire_array(block->switch_box, wire_types, num_wire_types, block->x, block->y, nx, ny, global_routing_node_id);
+	alloc_and_init_starting_wire_array(block->switch_box, wire_types, num_wire_types, block->x, block->y, nx, ny, global_routing_node_id, id_to_node);
 }
 
 void init_ending_wires(t_block **grid, int nx, int ny)
@@ -652,7 +657,7 @@ int select_wire_uniformly(s_wire **wires, int total_num_wires, int **num_wires_b
 }
 
 /* three level offset [direction][type][track] */
-void init_clb_output_pins(t_block *block, float fc_out, s_wire_type *wire_types, int num_wire_types, int *global_routing_node_id)
+void init_clb_output_pins(t_block *block, float fc_out, s_wire_type *wire_types, int num_wire_types, int *global_routing_node_id, GHashTable *id_to_node)
 {
 	s_switch_box *switch_box;
 	int actual_fc_out;
@@ -678,8 +683,13 @@ void init_clb_output_pins(t_block *block, float fc_out, s_wire_type *wire_types,
 		for (port = 0; port < block->pb[instance].type->num_output_ports; port++) {
 			for (pin = 0; pin < block->pb[instance].type->output_ports[port].num_pins; pin++) {
 				assert(block->pb[instance].output_pins[port][pin].base.type == OPIN);
-				block->pb[instance].output_pins[port][pin].base.id = (*global_routing_node_id)++;
+				block->pb[instance].output_pins[port][pin].base.id = *global_routing_node_id;
 				block->pb[instance].output_pins[port][pin].base.children = NULL;
+
+				assert(!g_hash_table_contains(id_to_node, *global_routing_node_id));
+				g_hash_table_insert(id_to_node, *global_routing_node_id, &block->pb[instance].output_pins[port][pin]);
+
+				(*global_routing_node_id)++;
 
 				select_wire_uniformly(wires, switch_box->num_starting_wires, switch_box->num_starting_wires_by_type,
 						switch_box->starting_wire_directions, switch_box->starting_direction_to_index,
@@ -701,7 +711,7 @@ void init_clb_output_pins(t_block *block, float fc_out, s_wire_type *wire_types,
 	free(track_offset);
 }
 
-void init_clb_input_pins(t_block *block, float fc_in, int *global_routing_node_id)
+void init_clb_input_pins(t_block *block, float fc_in, int *global_routing_node_id, GHashTable *id_to_node)
 {
 	int actual_fc_in;
 	int i;
@@ -728,8 +738,13 @@ void init_clb_input_pins(t_block *block, float fc_in, int *global_routing_node_i
 		for (port = 0; port < block->pb[instance].type->num_input_ports; port++) {
 			for (pin = 0; pin < block->pb[instance].type->input_ports[port].num_pins; pin++) {
 				assert(block->pb[instance].input_pins[port][pin].base.type == IPIN);
-				block->pb[instance].input_pins[port][pin].base.id = (*global_routing_node_id)++;
+				block->pb[instance].input_pins[port][pin].base.id = *global_routing_node_id;
 				block->pb[instance].input_pins[port][pin].base.children = NULL;
+
+				assert(!g_hash_table_contains(id_to_node, *global_routing_node_id));
+				g_hash_table_insert(id_to_node, *global_routing_node_id, &block->pb[instance].input_pins[port][pin]);
+
+				(*global_routing_node_id)++;
 
 				select_wire_uniformly(wires, switch_box->num_ending_wires, switch_box->num_ending_wires_by_type,
 						switch_box->ending_wire_directions, switch_box->ending_direction_to_index,
@@ -958,7 +973,7 @@ void dump_clb(t_block *block, FILE *file)
 //	init_switch_box(clb->switch_box, clb->x, clb->y, wire_specs, num_wire_specs, num_wires_per_clb, global_routing_node_id);
 //}
 
-void init_block_wires(t_block **grid, int nx, int ny, s_wire_type *wire_types, int num_wire_types, int num_wires_per_clb, int *global_routing_node_id)
+void init_block_wires(t_block **grid, int nx, int ny, s_wire_type *wire_types, int num_wire_types, int num_wires_per_clb, int *global_routing_node_id, GHashTable **id_to_node)
 {
 	const float fc_out = 1;
 	const float fc_in = 1;
@@ -969,18 +984,19 @@ void init_block_wires(t_block **grid, int nx, int ny, s_wire_type *wire_types, i
 	file = fopen("rr_graph.txt", "w");
 
 	*global_routing_node_id = 0;
+	*id_to_node = g_hash_table_new(g_direct_hash, g_direct_equal);
 	for (x = 0; x < nx; x++) {
 		for (y = 0; y < ny; y++) {
 			grid[x][y].switch_box = calloc(1, sizeof(s_switch_box));
-			init_starting_wires(&grid[x][y], nx, ny, wire_types, num_wire_types, num_wires_per_clb, global_routing_node_id);
+			init_starting_wires(&grid[x][y], nx, ny, wire_types, num_wire_types, num_wires_per_clb, global_routing_node_id, *id_to_node);
 		}
 	}
 
 	init_ending_wires(grid, nx, ny);
 	for (x = 0; x < nx; x++) {
 		for (y = 0; y < ny; y++) {
-			init_clb_output_pins(&grid[x][y], fc_out, wire_types, num_wire_types, global_routing_node_id);
-			init_clb_input_pins(&grid[x][y], fc_in, global_routing_node_id);
+			init_clb_output_pins(&grid[x][y], fc_out, wire_types, num_wire_types, global_routing_node_id, *id_to_node);
+			init_clb_input_pins(&grid[x][y], fc_in, global_routing_node_id, *id_to_node);
 			init_inter_switch_box(grid[x][y].switch_box, fs);
 		}
 	}

@@ -103,11 +103,13 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *external_net
 						net = g_hash_table_lookup(external_nets, token->data);
 					} else {
 						net = malloc(sizeof(s_net));
+						net->num_sinks = 0;
 						net->source_pin = NULL;
 						net->sink_pins = NULL;
 						g_hash_table_insert(external_nets, token->data, net);
 					}
 					net->sink_pins = g_slist_prepend(net->sink_pins, &pb->input_pins[port->port_number][pin]);
+					net->num_sinks++;
 				} else {
 					pins = get_pb_pins(pb->parent, pb->parent->children, strtok(token->data, "->"), &num_sets, &num_pins);
 					assert(num_sets == 1 && num_pins[0] == 1);
@@ -186,6 +188,7 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *external_net
 							net = malloc(sizeof(s_net));
 							net->source_pin = NULL;
 							net->sink_pins = NULL;
+							net->num_sinks = 0;
 							g_hash_table_insert(external_nets, token->data, net);
 						}
 						assert(!net->source_pin);

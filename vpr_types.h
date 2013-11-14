@@ -201,9 +201,17 @@ typedef struct _s_block_position {
 	int z;
 } s_block_position;
 
+typedef struct _s_bounding_box {
+	int x1, y1;
+	int x2, y2;
+	int area;
+} s_bounding_box;
+
 typedef struct _s_net {
 	struct _s_pb_graph_pin *source_pin;
 	GSList *sink_pins;
+	int num_sinks;
+	s_bounding_box bounding_box;
 } s_net;
 
 #endif /* VPR_TYPES_H_ */

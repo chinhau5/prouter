@@ -24,7 +24,7 @@
 int main()
 {
 	s_wire_type wire_types[4];
-	int num_wires = 20;
+	int num_wires = 80;
 	s_track *tracks;
 	int track, channel, segment;
 	int start;
@@ -56,6 +56,16 @@ int main()
 	int num_wire_types;
 	int global_routing_node_id;
 	int previous;
+	int *node_usage;
+	int used_nodes;
+	int overused_nodes;
+	int max_overuse;
+	float average_overuse;
+	int **num_opins;
+	int max_num_opins;
+	GList **node_requests;
+	GHashTable *id_to_node;
+	s_net **grant;
 
 	wire_types[0].name = names[0];
 	wire_types[0].freq = 1;
@@ -122,31 +132,88 @@ int main()
 //		}
 
 	update_wire_count(wire_types, num_wire_types, &num_wires);
-	init_block_wires(grid, nx, ny, wire_types, num_wire_types, num_wires, &global_routing_node_id);
+	init_block_wires(grid, nx, ny, wire_types, num_wire_types, num_wires, &global_routing_node_id, &id_to_node);
 
 	printf("num global routing nodes: %d\n", global_routing_node_id);
 
-	dot_file = fopen("graph.dot", "w");
+	//dot_file = fopen("graph.dot", "w");
+
+	node_usage = calloc(global_routing_node_id, sizeof(int));
+	node_requests = calloc(global_routing_node_id, sizeof(GList *));
+	grant = calloc(global_routing_node_id, sizeof(s_net *));
+
+	num_opins = malloc(sizeof(int *) * nx);
+
+	for (i = 0; i < nx; i++) {
+		num_opins[i] = calloc(ny, sizeof(int));
+	}
+	max_num_opins = 0;
 
 	g_hash_table_iter_init(&iter, external_nets);
 	while (g_hash_table_iter_next (&iter, &key, &value)) {
 		net = value;
 
-		printf("net: %s\n", key);
-
-		printf("%s.%s.%s[%d]\n", net->source_pin->pb->name, net->source_pin->port->pb_type->name, net->source_pin->port->name, net->source_pin->pin_number);
-		litem = net->sink_pins;
-		while (litem) {
-			sink_pin = litem->data;
-			printf("%s.%s.%s[%d] ", sink_pin->pb->name, sink_pin->port->pb_type->name, sink_pin->port->name, sink_pin->pin_number);
-			litem = litem->next;
+		num_opins[net->source_pin->base.x][net->source_pin->base.y]++;
+		if (num_opins[net->source_pin->base.x][net->source_pin->base.y] > max_num_opins) {
+			max_num_opins = num_opins[net->source_pin->base.x][net->source_pin->base.y];
 		}
-		printf("\n\n");
 
-		//create_dot_file(&net->source_pin->base, dot_file, 1);
-		//fclose(dot_file);
-		route_net(net, global_routing_node_id);
+		init_net_bounding_box(net);
 	}
+
+	for (i = 0; i < 10; i++) {
+		g_hash_table_iter_init(&iter, external_nets);
+		while (g_hash_table_iter_next (&iter, &key, &value)) {
+			net = value;
+
+			printf("net: %s\n", key);
+
+			printf("%s.%s.%s[%d]\n", net->source_pin->pb->name, net->source_pin->port->pb_type->name, net->source_pin->port->name, net->source_pin->pin_number);
+			litem = net->sink_pins;
+			while (litem) {
+				sink_pin = litem->data;
+				printf("%s.%s.%s[%d] ", sink_pin->pb->name, sink_pin->port->pb_type->name, sink_pin->port->name, sink_pin->pin_number);
+				litem = litem->next;
+			}
+			printf("\n\n");
+
+			//create_dot_file(&net->source_pin->base, dot_file, 1);
+			//fclose(dot_file);
+			route_net(net, global_routing_node_id, node_usage, node_requests, grant);
+		}
+
+		used_nodes = 0;
+		overused_nodes = 0;
+		max_overuse = 0;
+		average_overuse = 0;
+		printf("stats\n");
+		for (j = 0; j < global_routing_node_id; j++) {
+			if (node_usage[j] > 0) {
+				used_nodes++;
+			}
+			if (node_usage[j] > 1) {
+				if (node_usage[j] > max_overuse) {
+					max_overuse = node_usage[j];
+				}
+				average_overuse += node_usage[j];
+				overused_nodes++;
+				//printf("%d\n", node_usage[j]);
+			}
+		}
+		average_overuse /= overused_nodes;
+
+//		for (j = 0; j < global_routing_node_id; j++) {
+//			grant[j] = NULL;
+//		}
+		reserve_route_resource(node_requests, node_usage, global_routing_node_id, id_to_node, grant, nx*ny);
+
+		for (j = 0; j < global_routing_node_id; j++) {
+			node_usage[j] = 0;
+			g_list_free(node_requests[j]);
+			node_requests[j] = NULL;
+		}
+	}
+
 
 
 
