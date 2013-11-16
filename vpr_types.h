@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <glib.h>
 #include "list.h"
+#include "bounding_box.h"
 
 typedef enum e_block_pin_type { BLOCK_INPUT, BLOCK_OUTPUT } e_block_pin_type;
 
@@ -55,17 +56,17 @@ typedef struct _s_track {
 	bool is_increasing;
 } s_track;
 
-typedef struct _s_rr_node {
-	int index;
-	e_rr_type type;
-	bool is_increasing;
-	int xlow;
-	int xhigh;
-	int ylow;
-	int yhigh;
-	int ptc_number;
-	s_list children;
-} s_rr_node;
+//typedef struct _s_rr_node {
+//	int index;
+//	e_rr_type type;
+//	bool is_increasing;
+//	int xlow;
+//	int xhigh;
+//	int ylow;
+//	int yhigh;
+//	int ptc_number;
+//	s_list children;
+//} s_rr_node;
 
 typedef struct _s_routing_node {
 	e_routing_node_type type;
@@ -201,17 +202,16 @@ typedef struct _s_block_position {
 	int z;
 } s_block_position;
 
-typedef struct _s_bounding_box {
-	int x1, y1;
-	int x2, y2;
-	int area;
-} s_bounding_box;
-
 typedef struct _s_net {
 	struct _s_pb_graph_pin *source_pin;
 	GSList *sink_pins;
 	int num_sinks;
-	s_bounding_box bounding_box;
+	struct _s_bounding_box bounding_box;
 } s_net;
+
+typedef struct _s_node_requester {
+	s_net *net;
+	s_routing_node *node;
+} s_node_requester;
 
 #endif /* VPR_TYPES_H_ */

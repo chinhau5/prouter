@@ -32,7 +32,7 @@ int main()
 	int i, j;
 	char *names[] = { "SINGLE", "DOUBLE", "SINGLE_R", "DOUBLE_R" };
 	s_block clb;
-	s_rr_node *****rr_node_lookup;
+	//s_rr_node *****rr_node_lookup;
 	s_switch_box *sb;
 	s_heap heap;
 	s_heap_item item;
@@ -57,6 +57,7 @@ int main()
 	int global_routing_node_id;
 	int previous;
 	int *node_usage;
+	int *first_level_node_usage;
 	int used_nodes;
 	int overused_nodes;
 	int max_overuse;
@@ -66,6 +67,11 @@ int main()
 	GList **node_requests;
 	GHashTable *id_to_node;
 	s_net **grant;
+	int num_nets;
+	GHashTable *congested_nets;
+	GList *node_request_item;
+	s_node_requester *requester;
+	int num_large_nets;
 
 	wire_types[0].name = names[0];
 	wire_types[0].freq = 1;
@@ -139,6 +145,7 @@ int main()
 	//dot_file = fopen("graph.dot", "w");
 
 	node_usage = calloc(global_routing_node_id, sizeof(int));
+	first_level_node_usage = calloc(global_routing_node_id, sizeof(int));
 	node_requests = calloc(global_routing_node_id, sizeof(GList *));
 	grant = calloc(global_routing_node_id, sizeof(s_net *));
 
@@ -149,7 +156,11 @@ int main()
 	}
 	max_num_opins = 0;
 
+	num_nets = g_hash_table_size(external_nets);
+
+	num_large_nets = 0;
 	g_hash_table_iter_init(&iter, external_nets);
+	printf("area\n");
 	while (g_hash_table_iter_next (&iter, &key, &value)) {
 		net = value;
 
@@ -159,7 +170,13 @@ int main()
 		}
 
 		init_net_bounding_box(net);
+
+		if (net->bounding_box.area > nx*ny*0.01) {
+			num_large_nets++;
+		}
 	}
+
+	congested_nets = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	for (i = 0; i < 10; i++) {
 		g_hash_table_iter_init(&iter, external_nets);
@@ -179,7 +196,20 @@ int main()
 
 			//create_dot_file(&net->source_pin->base, dot_file, 1);
 			//fclose(dot_file);
-			route_net(net, global_routing_node_id, node_usage, node_requests, grant);
+			route_net(net, global_routing_node_id, node_usage, first_level_node_usage, node_requests, grant);
+		}
+
+		for (j = 0; j < global_routing_node_id; j++) {
+			if (node_usage[j] > 1) {
+				node_request_item = node_requests[j];
+				while (node_request_item) {
+					requester = node_request_item->data;
+					if (!g_hash_table_contains(congested_nets, requester->net)) {
+						g_hash_table_add(congested_nets, requester->net);
+					}
+					node_request_item = node_request_item->next;
+				}
+			}
 		}
 
 		used_nodes = 0;

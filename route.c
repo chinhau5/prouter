@@ -108,12 +108,7 @@ void print_wire(s_wire *wire, float cost, float expected_cost)
 
 //#define VERBOSE
 
-typedef struct _s_node_requester {
-	s_net *net;
-	s_routing_node *node;
-} s_node_requester;
-
-void route_net(s_net *net, int num_routing_nodes, int *node_usage, GList **node_requests, s_net **grant)
+void route_net(s_net *net, int num_routing_nodes, int *node_usage, int *first_level_node_usage, GList **node_requests, s_net **grant)
 {
 	s_heap heap;
 	s_routing_node *current, *neighbour, *sink;
@@ -211,8 +206,8 @@ void route_net(s_net *net, int num_routing_nodes, int *node_usage, GList **node_
 					printf("min_cost: %f ", route_details[neighbour->id].min_cost);
 #endif
 
-					if (cost < route_details[neighbour->id].min_cost && !route_details[neighbour->id].visited &&
-						(!grant[neighbour->id] || grant[neighbour->id] == net)	/*&& node_usage[neighbour->id] == 0*/) {
+					if (cost < route_details[neighbour->id].min_cost && !route_details[neighbour->id].visited  && (current != net->source_pin || first_level_node_usage[neighbour->id] == 0)
+						/*(!grant[neighbour->id] || grant[neighbour->id] == net)*/	/*&& node_usage[neighbour->id] == 0*/) {
 						route_details[neighbour->id].min_cost = cost;
 						route_details[neighbour->id].expected_cost = expected_cost;
 						route_details[neighbour->id].prev_node = current;
@@ -245,16 +240,19 @@ void route_net(s_net *net, int num_routing_nodes, int *node_usage, GList **node_
 	}
 
 	printf("\n");
-
+#define PRINT_ROUTE_TREE
 	g_hash_table_iter_init(&route_tree_iter, route_tree);
 	while (g_hash_table_iter_next (&route_tree_iter, &node_id, &node)) {
 		assert(node_id == node->id);
 		/* important to allow nodes in the current route tree to be reused */
-#ifdef VERBOSE
+#ifdef PRINT_ROUTE_TREE
 		if (node->type == WIRE) { printf("rt: "); print_wire(node, route_details[node->id].min_cost, route_details[node->id].expected_cost); printf(" "); }
 		else if (node->type == IPIN) { printf("rt: IPIN id=%d [%d,%d] ", node->id, node->x, node->y); }
 		else if (node->type == OPIN) { printf("rt: OPIN id=%d [%d,%d] cost=%f e_cost=%f ", node->id, node->x, node->y, route_details[node->id].min_cost, route_details[node->id].expected_cost); }
 
+		if (route_details[node->id].prev_node == net->source_pin) {
+			first_level_node_usage[node->id]++;
+		}
 		if (route_details[node->id].prev_node) {
 			printf("prev_node id=%d", route_details[node->id].prev_node->id);
 		} else {
@@ -297,50 +295,50 @@ float get_num_alternative_routes(s_routing_node *node, s_routing_node *requested
 
 void init_net_bounding_box(s_net *net)
 {
-	int x1, y1, x2, y2;
+	int left, bottom, right, top;
 	GSList *sink_item;
 	s_pb_graph_pin *sink;
 
-	x2 = y2 = 0;
-	x1 = y1 = INT_MAX;
+	right = top = 0;
+	left = bottom = INT_MAX;
 
-	if (net->source_pin->base.x < x1) {
-		x1 = net->source_pin->base.x;
+	if (net->source_pin->base.x < left) {
+		left = net->source_pin->base.x;
 	}
-	if (net->source_pin->base.x > x2) {
-		x2 = net->source_pin->base.x;
+	if (net->source_pin->base.x > right) {
+		right = net->source_pin->base.x;
 	}
-	if (net->source_pin->base.y < y1) {
-		y1 = net->source_pin->base.y;
+	if (net->source_pin->base.y < bottom) {
+		bottom = net->source_pin->base.y;
 	}
-	if (net->source_pin->base.y > y2) {
-		y2 = net->source_pin->base.y;
+	if (net->source_pin->base.y > top) {
+		top = net->source_pin->base.y;
 	}
 
 	sink_item = net->sink_pins;
 	while (sink_item) {
 		sink = sink_item->data;
-		if (sink->base.x < x1) {
-			x1 = sink->base.x;
+		if (sink->base.x < left) {
+			left = sink->base.x;
 		}
-		if (sink->base.x > x2) {
-			x2 = sink->base.x;
+		if (sink->base.x > right) {
+			right = sink->base.x;
 		}
-		if (sink->base.y < y1) {
-			y1 = sink->base.y;
+		if (sink->base.y < bottom) {
+			bottom = sink->base.y;
 		}
-		if (sink->base.y > y2) {
-			y2 = sink->base.y;
+		if (sink->base.y > top) {
+			top = sink->base.y;
 		}
 		sink_item = sink_item->next;
 	}
 
-	net->bounding_box.x1 = x1;
-	net->bounding_box.x2 = x2;
-	net->bounding_box.y1 = y1;
-	net->bounding_box.y2 = y2;
-	assert(x2 >= x1 && y2 >= y1);
-	net->bounding_box.area = abs(x1-x2) * abs(y1-y2);
+	net->bounding_box.left = left;
+	net->bounding_box.right = right;
+	net->bounding_box.top = top;
+	net->bounding_box.bottom = bottom;
+	assert(right >= left && top >= bottom);
+	net->bounding_box.area = abs(left-right) * abs(bottom-top);
 }
 
 void reserve_route_resource(GList **node_requests, int *node_usage, int num_routing_nodes, GHashTable *id_to_node, s_net **grant, float total_area)
@@ -362,18 +360,18 @@ void reserve_route_resource(GList **node_requests, int *node_usage, int num_rout
 			requested_node = g_hash_table_lookup(id_to_node, i);
 			assert(requested_node->id == i);
 			assert(requested_node->type == WIRE);
-			//printf("overused: id=%d [%d,%d]\n", requested_node->id, requested_node->x, requested_node->y);
+			printf("overused: id=%d [%d,%d]\n", requested_node->id, requested_node->x, requested_node->y);
 
 			node_requests_item = node_requests[i];
 			while (node_requests_item) {
 				requester = node_requests_item->data;
 
-//				if (requester->node->type == WIRE) {
-//					printf("requester: WIRE id=%d type=%d [%d,%d]->[%d,%d]\n", requester->node->id, requester->node->type, requester->node->x, requester->node->y, requested_node->x, requested_node->y);
-//				} else {
-//					assert(requester->node->type == OPIN);
-//					printf("requester: OPIN id=%d type=%d [%d,%d]\n", requester->node->id, requester->node->type, requester->node->x, requester->node->y);
-//				}
+				if (requester->node->type == WIRE) {
+					printf("requester: WIRE id=%d type=%d [%d,%d]->[%d,%d]\n", requester->node->id, requester->node->type, requester->node->x, requester->node->y, requested_node->x, requested_node->y);
+				} else {
+					assert(requester->node->type == OPIN);
+					printf("requester: OPIN id=%d type=%d [%d,%d]\n", requester->node->id, requester->node->type, requester->node->x, requester->node->y);
+				}
 
 				num_alternative_routes = get_num_alternative_routes(requester->node, requested_node, node_usage);
 
@@ -389,7 +387,7 @@ void reserve_route_resource(GList **node_requests, int *node_usage, int num_rout
 				heap_clear(&heap);
 				grant[i] = granted->net;
 			}
-			//printf("\n");
+			printf("\n");
 		}
 	}
 }
