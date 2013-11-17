@@ -18,7 +18,11 @@ typedef struct _s_quad_tree {
 	struct _s_quad_tree *nodes[4];
 	GSList *objects;
 	int num_objects;
-	int max_num_objects;
+	int level;
 } s_quad_tree;
+
+void quadtree_init(s_quad_tree *quad_tree, s_bounding_box *bounding_box, int level);
+void quadtree_insert(s_quad_tree *quad_tree, void *object, s_bounding_box *object_bounding_box);
+void quadtree_query(s_quad_tree *quad_tree, s_bounding_box *object_bounding_box, GSList **result);
 
 #endif /* QUADTREE_H_ */

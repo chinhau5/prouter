@@ -20,11 +20,12 @@
 #include "pb_graph.h"
 #include "placement.h"
 #include "route.h"
+#include "quadtree.h"
 
-int main()
+int main(int argc, char **argv)
 {
 	s_wire_type wire_types[4];
-	int num_wires = 80;
+	int num_wires = 200;
 	s_track *tracks;
 	int track, channel, segment;
 	int start;
@@ -37,6 +38,8 @@ int main()
 	s_heap heap;
 	s_heap_item item;
 	int num_blocks;
+	char netlist_filename[256];
+	char placement_filename[256];
 
 	s_pb_top_type *pb_top_types;
 	int num_pb_top_types;
@@ -105,11 +108,18 @@ int main()
 	//wire_types[3].num_shapes = 1;
 	wire_types[3].direction = WIRE_S;
 
+	//quadtree_test();
+
+	assert(argc == 3);
+
 	num_wire_types = sizeof(wire_types)/sizeof(s_wire_type);
 
-	pb_top_types = parse_arch("sample_arch.xml", &num_pb_top_types);
+	pb_top_types = parse_arch(argv[1], &num_pb_top_types);
 
-	parse_placement("tseng.place", pb_top_types, num_pb_top_types, &nx, &ny, &grid, &block_positions);
+	sprintf(placement_filename, "%s.place", argv[2]);
+	sprintf(netlist_filename, "%s.net", argv[2]);
+
+	parse_placement(placement_filename, pb_top_types, num_pb_top_types, &nx, &ny, &grid, &block_positions);
 //	for (x = 0; x < nx; x++) {
 //		for (y = 0; y < ny; y++) {
 //			if (grid[x][y].name) {
@@ -117,7 +127,7 @@ int main()
 //			}
 //		}
 //	}
-	parse_netlist("tseng.net", grid, block_positions, pb_top_types, num_pb_top_types, &num_blocks, &external_nets);
+	parse_netlist(netlist_filename, grid, block_positions, pb_top_types, num_pb_top_types, &num_blocks, &external_nets);
 
 //	heap_init(&heap);
 
@@ -140,7 +150,7 @@ int main()
 	update_wire_count(wire_types, num_wire_types, &num_wires);
 	init_block_wires(grid, nx, ny, wire_types, num_wire_types, num_wires, &global_routing_node_id, &id_to_node);
 
-	printf("num global routing nodes: %d\n", global_routing_node_id);
+	//printf("num global routing nodes: %d\n", global_routing_node_id);
 
 	//dot_file = fopen("graph.dot", "w");
 
@@ -178,45 +188,108 @@ int main()
 
 	congested_nets = g_hash_table_new(g_direct_hash, g_direct_equal);
 
-	for (i = 0; i < 10; i++) {
+	//for (i = 0; i < 10; i++) {
+		for (j = 0; j < global_routing_node_id; j++) {
+			node_usage[j] = 0;
+			first_level_node_usage[j] = 0;
+		}
 		g_hash_table_iter_init(&iter, external_nets);
 		while (g_hash_table_iter_next (&iter, &key, &value)) {
 			net = value;
 
-			printf("net: %s\n", key);
+			//printf("net: %s\n", key);
 
-			printf("%s.%s.%s[%d]\n", net->source_pin->pb->name, net->source_pin->port->pb_type->name, net->source_pin->port->name, net->source_pin->pin_number);
+			//printf("%s.%s.%s[%d]\n", net->source_pin->pb->name, net->source_pin->port->pb_type->name, net->source_pin->port->name, net->source_pin->pin_number);
 			litem = net->sink_pins;
 			while (litem) {
 				sink_pin = litem->data;
-				printf("%s.%s.%s[%d] ", sink_pin->pb->name, sink_pin->port->pb_type->name, sink_pin->port->name, sink_pin->pin_number);
+				//printf("%s.%s.%s[%d] ", sink_pin->pb->name, sink_pin->port->pb_type->name, sink_pin->port->name, sink_pin->pin_number);
 				litem = litem->next;
 			}
-			printf("\n\n");
+			//printf("\n\n");
 
 			//create_dot_file(&net->source_pin->base, dot_file, 1);
 			//fclose(dot_file);
-			route_net(net, global_routing_node_id, node_usage, first_level_node_usage, node_requests, grant);
+			route_net(net, global_routing_node_id, node_usage, first_level_node_usage, node_requests, grant, false);
 		}
 
-		for (j = 0; j < global_routing_node_id; j++) {
-			if (node_usage[j] > 1) {
-				node_request_item = node_requests[j];
-				while (node_request_item) {
-					requester = node_request_item->data;
-					if (!g_hash_table_contains(congested_nets, requester->net)) {
-						g_hash_table_add(congested_nets, requester->net);
-					}
-					node_request_item = node_request_item->next;
-				}
-			}
-		}
+//		for (j = 0; j < global_routing_node_id; j++) {
+//			if (node_usage[j] > 1) {
+//				node_request_item = node_requests[j];
+//				while (node_request_item) {
+//					requester = node_request_item->data;
+//					if (!g_hash_table_contains(congested_nets, requester->net)) {
+//						g_hash_table_add(congested_nets, requester->net);
+//					}
+//					node_request_item = node_request_item->next;
+//				}
+//			}
+//		}
 
 		used_nodes = 0;
 		overused_nodes = 0;
 		max_overuse = 0;
 		average_overuse = 0;
-		printf("stats\n");
+		printf("before\n");
+		for (j = 0; j < global_routing_node_id; j++) {
+			if (node_usage[j] > 0) {
+				used_nodes++;
+			}
+			if (node_usage[j] > 1) {
+				if (node_usage[j] > max_overuse) {
+					max_overuse = node_usage[j];
+				}
+				average_overuse += node_usage[j];
+				overused_nodes++;
+				//printf("%d\n", node_usage[j]);
+			}
+		}
+		average_overuse /= overused_nodes;
+		printf("used: %d overused: %d average_overuse: %f\n", used_nodes, overused_nodes, average_overuse);
+
+		for (j = 0; j < global_routing_node_id; j++) {
+			node_usage[j] = 0;
+			first_level_node_usage[j] = 0;
+		}
+
+		g_hash_table_iter_init(&iter, external_nets);
+		while (g_hash_table_iter_next (&iter, &key, &value)) {
+			net = value;
+
+			//printf("net: %s\n", key);
+
+			//printf("%s.%s.%s[%d]\n", net->source_pin->pb->name, net->source_pin->port->pb_type->name, net->source_pin->port->name, net->source_pin->pin_number);
+			litem = net->sink_pins;
+			while (litem) {
+				sink_pin = litem->data;
+				//printf("%s.%s.%s[%d] ", sink_pin->pb->name, sink_pin->port->pb_type->name, sink_pin->port->name, sink_pin->pin_number);
+				litem = litem->next;
+			}
+			//printf("\n\n");
+
+			//create_dot_file(&net->source_pin->base, dot_file, 1);
+			//fclose(dot_file);
+			route_net(net, global_routing_node_id, node_usage, first_level_node_usage, node_requests, grant, true);
+		}
+
+//		for (j = 0; j < global_routing_node_id; j++) {
+//			if (node_usage[j] > 1) {
+//				node_request_item = node_requests[j];
+//				while (node_request_item) {
+//					requester = node_request_item->data;
+//					if (!g_hash_table_contains(congested_nets, requester->net)) {
+//						g_hash_table_add(congested_nets, requester->net);
+//					}
+//					node_request_item = node_request_item->next;
+//				}
+//			}
+//		}
+
+		used_nodes = 0;
+		overused_nodes = 0;
+		max_overuse = 0;
+		average_overuse = 0;
+		printf("after\n");
 		for (j = 0; j < global_routing_node_id; j++) {
 			if (node_usage[j] > 0) {
 				used_nodes++;
@@ -232,17 +305,21 @@ int main()
 		}
 		average_overuse /= overused_nodes;
 
+		printf("used: %d overused: %d average_overuse: %f\n", used_nodes, overused_nodes, average_overuse);
+
 //		for (j = 0; j < global_routing_node_id; j++) {
 //			grant[j] = NULL;
 //		}
-		reserve_route_resource(node_requests, node_usage, global_routing_node_id, id_to_node, grant, nx*ny);
+		//reserve_route_resource(node_requests, node_usage, global_routing_node_id, id_to_node, grant, nx*ny);
 
 		for (j = 0; j < global_routing_node_id; j++) {
 			node_usage[j] = 0;
 			g_list_free(node_requests[j]);
 			node_requests[j] = NULL;
 		}
-	}
+
+		//return 0;
+	//}
 
 
 

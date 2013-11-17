@@ -22,6 +22,7 @@ typedef struct _s_heap {
 #define INITIAL_HEAP_SIZE 200
 
 void heap_init(s_heap *heap);
+void heap_free(s_heap *heap);
 void heap_push(s_heap *heap, float cost, void *data);
 void *heap_pop(s_heap *heap);
 bool heap_is_empty(s_heap *heap);

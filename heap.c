@@ -18,6 +18,12 @@ void heap_init(s_heap *heap)
 	heap->tail = -1;
 }
 
+void heap_free(s_heap *heap)
+{
+	free(heap->buffer);
+	heap->buffer = NULL;
+}
+
 void heap_clear(s_heap *heap)
 {
 	heap->tail = -1;
