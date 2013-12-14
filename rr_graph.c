@@ -254,7 +254,7 @@ void count_starting_wires(s_switch_box *switch_box, s_wire_type *wire_types, int
 	}
 }
 
-void count_ending_wires(t_block **grid, int nx, int ny)
+void count_ending_wires(s_block **grid, int nx, int ny)
 {
 	int x, y;
 	int i;
@@ -388,7 +388,7 @@ void alloc_and_init_starting_wire_array(s_switch_box *switch_box, s_wire_type *w
 	}
 }
 
-void alloc_and_init_ending_wire_array(t_block **blocks, int nx, int ny)
+void alloc_and_init_ending_wire_array(s_block **blocks, int nx, int ny)
 {
 	int x, y;
 	int wire;
@@ -431,13 +431,13 @@ void alloc_and_init_ending_wire_array(t_block **blocks, int nx, int ny)
 	}
 }
 
-void init_starting_wires(t_block *block, int nx, int ny, s_wire_type *wire_types, int num_wire_types, int num_wires_per_clb, int *global_routing_node_id, GHashTable *id_to_node)
+void init_starting_wires(s_block *block, int nx, int ny, s_wire_type *wire_types, int num_wire_types, int num_wires_per_clb, int *global_routing_node_id, GHashTable *id_to_node)
 {
 	count_starting_wires(block->switch_box, wire_types, num_wire_types, block->x, block->y, nx, ny);
 	alloc_and_init_starting_wire_array(block->switch_box, wire_types, num_wire_types, block->x, block->y, nx, ny, global_routing_node_id, id_to_node);
 }
 
-void init_ending_wires(t_block **grid, int nx, int ny)
+void init_ending_wires(s_block **grid, int nx, int ny)
 {
 	count_ending_wires(grid, nx, ny);
 	alloc_and_init_ending_wire_array(grid, nx, ny);
@@ -657,7 +657,7 @@ int select_wire_uniformly(s_wire **wires, int total_num_wires, int **num_wires_b
 }
 
 /* three level offset [direction][type][track] */
-void init_clb_output_pins(t_block *block, float fc_out, s_wire_type *wire_types, int num_wire_types, int *global_routing_node_id, GHashTable *id_to_node)
+void init_clb_output_pins(s_block *block, float fc_out, s_wire_type *wire_types, int num_wire_types, int *global_routing_node_id, GHashTable *id_to_node)
 {
 	s_switch_box *switch_box;
 	int actual_fc_out;
@@ -682,7 +682,7 @@ void init_clb_output_pins(t_block *block, float fc_out, s_wire_type *wire_types,
 	for (instance = 0; instance < block->capacity; instance++) {
 		for (port = 0; port < block->pb[instance].type->num_output_ports; port++) {
 			for (pin = 0; pin < block->pb[instance].type->output_ports[port].num_pins; pin++) {
-				assert(block->pb[instance].output_pins[port][pin].base.type == OPIN);
+				assert(block->pb[instance].output_pins[port][pin].base.type == OUTPUT_PIN);
 				block->pb[instance].output_pins[port][pin].base.id = *global_routing_node_id;
 				block->pb[instance].output_pins[port][pin].base.children = NULL;
 
@@ -711,7 +711,7 @@ void init_clb_output_pins(t_block *block, float fc_out, s_wire_type *wire_types,
 	free(track_offset);
 }
 
-void init_clb_input_pins(t_block *block, float fc_in, int *global_routing_node_id, GHashTable *id_to_node)
+void init_clb_input_pins(s_block *block, float fc_in, int *global_routing_node_id, GHashTable *id_to_node)
 {
 	int actual_fc_in;
 	int i;
@@ -737,7 +737,7 @@ void init_clb_input_pins(t_block *block, float fc_in, int *global_routing_node_i
 	for (instance = 0; instance < block->capacity; instance++) {
 		for (port = 0; port < block->pb[instance].type->num_input_ports; port++) {
 			for (pin = 0; pin < block->pb[instance].type->input_ports[port].num_pins; pin++) {
-				assert(block->pb[instance].input_pins[port][pin].base.type == IPIN);
+				assert(block->pb[instance].input_pins[port][pin].base.type == INPUT_PIN);
 				block->pb[instance].input_pins[port][pin].base.id = *global_routing_node_id;
 				block->pb[instance].input_pins[port][pin].base.children = NULL;
 
@@ -853,7 +853,7 @@ void dump_wire(s_wire *wire, FILE *file)
 			wire->type->direction, wire->type->shape, wire->type->relative_x, wire->type->relative_y);
 }
 
-void dump_clb(t_block *block, FILE *file)
+void dump_clb(s_block *block, FILE *file)
 {
 	GSList *item;
 	s_wire *wire;
@@ -931,7 +931,7 @@ void dump_clb(t_block *block, FILE *file)
 		dump_wire(block->switch_box->ending_wires[pin], file); fprintf(file, " ->\n");
 		while (item) {
 			node = (s_routing_node *)item->data;
-			if (node->type == IPIN) {
+			if (node->type == INPUT_PIN) {
 				fprintf(file, "\t"); dump_pin(node, file); fprintf(file, "\n");
 			} else if (node->type == WIRE) {
 				fprintf(file, "\t"); dump_wire(node, file); fprintf(file, "\n");
@@ -973,7 +973,7 @@ void dump_clb(t_block *block, FILE *file)
 //	init_switch_box(clb->switch_box, clb->x, clb->y, wire_specs, num_wire_specs, num_wires_per_clb, global_routing_node_id);
 //}
 
-void init_block_wires(t_block **grid, int nx, int ny, s_wire_type *wire_types, int num_wire_types, int num_wires_per_clb, int *global_routing_node_id, GHashTable **id_to_node)
+void init_block_wires(s_block **grid, int nx, int ny, s_wire_type *wire_types, int num_wire_types, int num_wires_per_clb, int *global_routing_node_id, GHashTable **id_to_node)
 {
 	const float fc_out = 1;
 	const float fc_in = 1;

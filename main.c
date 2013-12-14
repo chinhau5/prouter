@@ -21,6 +21,7 @@
 #include "placement.h"
 #include "route.h"
 #include "quadtree.h"
+#include "vpr_interface.h"
 
 int main(int argc, char **argv)
 {
@@ -32,7 +33,7 @@ int main(int argc, char **argv)
 	int nx, ny;
 	int i, j;
 	char *names[] = { "SINGLE", "DOUBLE", "SINGLE_R", "DOUBLE_R" };
-	s_block clb;
+	//s_block clb;
 	//s_rr_node *****rr_node_lookup;
 	s_switch_box *sb;
 	s_heap heap;
@@ -47,7 +48,7 @@ int main(int argc, char **argv)
 	GHashTableIter iter;
 	gpointer key, value;
 	struct _s_block_position *block_pos;
-	t_block **grid;
+	s_block **grid;
 	int x, y;
 	GHashTable *external_nets;
 	s_net *net;
@@ -75,6 +76,13 @@ int main(int argc, char **argv)
 	GList *node_request_item;
 	s_node_requester *requester;
 	int num_large_nets;
+
+	t_options options;
+	t_arch Arch;
+	struct s_router_opts RouterOpts;
+	struct s_det_routing_arch RoutingArch;
+	t_segment_inf *Segments;
+	t_timing_inf Timing;
 
 	wire_types[0].name = names[0];
 	wire_types[0].freq = 1;
@@ -112,14 +120,17 @@ int main(int argc, char **argv)
 
 	assert(argc == 3);
 
+	memset(&options, 0, sizeof(options));
+	options.ArchFile = strdup("sample_arch.xml");
+	options.CircuitName = strdup("tseng");
+	vpr_init(options, &Arch, &RouterOpts, &RoutingArch, &Segments, &Timing);
+
 	num_wire_types = sizeof(wire_types)/sizeof(s_wire_type);
 
 	pb_top_types = parse_arch(argv[1], &num_pb_top_types);
 
 	sprintf(placement_filename, "%s.place", argv[2]);
 	sprintf(netlist_filename, "%s.net", argv[2]);
-
-	parse_placement(placement_filename, pb_top_types, num_pb_top_types, &nx, &ny, &grid, &block_positions);
 //	for (x = 0; x < nx; x++) {
 //		for (y = 0; y < ny; y++) {
 //			if (grid[x][y].name) {
@@ -127,7 +138,16 @@ int main(int argc, char **argv)
 //			}
 //		}
 //	}
-	parse_netlist(netlist_filename, grid, block_positions, pb_top_types, num_pb_top_types, &num_blocks, &external_nets);
+	parse_netlist(netlist_filename, &grid, &nx, &ny, block_positions, pb_top_types, num_pb_top_types, &num_blocks, &external_nets);
+
+	/* have to read the netlist before calling this before it requires num_block to be initialized */
+	InitArch(Arch);
+
+	parse_placement(placement_filename, &nx, &ny, &block_positions);
+
+	vpr_build_rr_graph(50, Arch.Chans, RoutingArch, RouterOpts, Segments, Timing);
+
+	return 0;
 
 //	heap_init(&heap);
 

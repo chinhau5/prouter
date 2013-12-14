@@ -15,13 +15,13 @@
 
 typedef enum e_block_pin_type { BLOCK_INPUT, BLOCK_OUTPUT } e_block_pin_type;
 
-typedef enum e_side { TOP, RIGHT, BOTTOM, LEFT, SIDE_END } e_side;
+//typedef enum e_side { TOP, RIGHT, BOTTOM, LEFT, SIDE_END } e_side;
 
 typedef enum e_block_type { CLB, X_CHANNEL, Y_CHANNEL, SWITCH_BOX } e_block_type;
 
-typedef enum e_rr_type { CHANX, CHANY, RR_TYPE_END } e_rr_type;
+//typedef enum e_rr_type { CHANX, CHANY, RR_TYPE_END } e_rr_type;
 
-typedef enum _e_routing_node_type {	CLK_PIN, OPIN, IPIN, WIRE } e_routing_node_type;
+typedef enum _e_routing_node_type {	CLK_PIN, OUTPUT_PIN, INPUT_PIN, WIRE } e_routing_node_type;
 
 typedef enum _e_wire_direction {
 	WIRE_E, WIRE_W, WIRE_N, WIRE_S,
@@ -30,7 +30,7 @@ typedef enum _e_wire_direction {
 	NUM_WIRE_DIRECTIONS
 } e_wire_direction;
 
-enum { INC_DIRECTION, DEC_DIRECTION, NUM_DIRECTIONS };
+//enum { INC_DIRECTION, DEC_DIRECTION, NUM_DIRECTIONS };
 
 typedef struct _s_value_index_pair {
 	int value;
@@ -167,7 +167,7 @@ typedef struct _s_pb {
 	struct _s_pb_type *type;
 	struct _s_mode *mode;
 
-	struct _t_block *block; /* only valid for top level pbs */
+	struct _s_block *block; /* only valid for top level pbs */
 	struct _s_pb *parent;
 	struct _s_pb **children; /* [pb_type][pb_type_instance] */
 
@@ -176,7 +176,7 @@ typedef struct _s_pb {
 	struct _s_pb_graph_pin **clock_pins; /* [0..num_clock_ports-1] [0..num_port_pins-1]*/
 } s_pb;
 
-typedef struct _t_block {
+typedef struct _s_block {
 	int x;
 	int y;
 	char *name;
@@ -184,17 +184,17 @@ typedef struct _t_block {
 	struct _s_pb *pb;
 	int capacity; /* specific for IO blocks */
 	struct _s_switch_box *switch_box;
-} t_block;
-
-typedef struct _s_physical_block_instance {
-	int x;
-	int y;
-	struct _s_pin *input_pins;
-	int num_input_pins;
-	struct _s_pin *output_pins;
-	int num_output_pins;
-	struct _s_switch_box *switch_box;
 } s_block;
+
+//typedef struct _s_physical_block_instance {
+//	int x;
+//	int y;
+//	struct _s_pin *input_pins;
+//	int num_input_pins;
+//	struct _s_pin *output_pins;
+//	int num_output_pins;
+//	struct _s_switch_box *switch_box;
+//} s_block;
 
 typedef struct _s_block_position {
 	int x;

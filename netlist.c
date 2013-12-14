@@ -45,7 +45,7 @@ s_mode *get_pb_type_mode(const char *mode_name, s_pb_type *pb_type, int *mode_in
 	return NULL;
 }
 
-void dump_netlist(t_block **grid, int nx, int ny)
+void dump_netlist(s_block **grid, int nx, int ny)
 {
 	int x, y;
 
@@ -250,6 +250,7 @@ s_pb *parse_block(s_pb **pbs, xmlNodePtr block_node, s_pb_type *pb_types, int nu
 	s_pb *pb;
 	char *mode_name;
 	int mode_index;
+	int i;
 
 	check_element_name(block_node, "block");
 
@@ -257,9 +258,19 @@ s_pb *parse_block(s_pb **pbs, xmlNodePtr block_node, s_pb_type *pb_types, int nu
 	assert(instance_name_and_index);
 	instance_name = tokenize_name_and_index(instance_name_and_index, &instance_low, &instance_high, &instance_no_index);
 	assert(instance_low == instance_high && !instance_no_index); /* debug */
-	pb_type = get_pb_type_from_instance_name(pb_types, num_pb_types, instance_name, &pb_type_index);
+
+	pb_type = NULL;
+	pb_type_index = -1;
+	for (i = 0; i < num_pb_types; i++) {
+		if (!strcmp(pb_types[i].name, instance_name)) {
+			pb_type = &pb_types[i];
+			pb_type_index = i;
+			break;
+		}
+	}
 	assert(pb_type); /* debug */
 	assert(instance_low < pb_type->num_pbs); /* debug */
+
 	pb = &pbs[pb_type_index][instance_low];
 
 	pb->type = pb_type;
@@ -273,12 +284,12 @@ s_pb *parse_block(s_pb **pbs, xmlNodePtr block_node, s_pb_type *pb_types, int nu
 		pb->mode = NULL;
 	}
 	pb->parent = parent;
-	init_pb_pins(pb);
+	alloc_and_init_pb_pins(pb);
 
 	return pb;
 }
 
-void parse_top_level_block(t_block **grid, GQueue *block_queue, GHashTable *block_positions, xmlNodePtr block_node, s_pb_top_type *pb_top_types, int num_pb_top_types)
+void parse_top_level_block(s_block **grid, GQueue *block_queue, GHashTable *block_positions, xmlNodePtr block_node, s_pb_top_type *pb_top_types, int num_pb_top_types)
 {
 	int i;
 	char *instance_name_and_index;
@@ -294,6 +305,7 @@ void parse_top_level_block(t_block **grid, GQueue *block_queue, GHashTable *bloc
 	char *mode_name;
 	int mode_index;
 	GQueue *queue;
+	xmlNodePtr current_block_node;
 	xmlNodePtr child_block_node;
 	struct _block_node_pb_pair *pair;
 
@@ -303,6 +315,8 @@ void parse_top_level_block(t_block **grid, GQueue *block_queue, GHashTable *bloc
 	assert(instance_name_and_index);
 	instance_name = tokenize_name_and_index(instance_name_and_index, &instance_low, &instance_high, &instance_no_index);
 	assert(instance_low == instance_high && !instance_no_index);
+
+	/* find pb_top_type for validation purposes */
 	pb_top_type = NULL;
 	for (i = 0; i < num_pb_top_types; i++) {
 		if (!strcmp(pb_top_types[i].base.name, instance_name)) {
@@ -311,12 +325,15 @@ void parse_top_level_block(t_block **grid, GQueue *block_queue, GHashTable *bloc
 		}
 	}
 	assert(pb_top_type);
+
+	/* find the pb instance pointer */
 	block_name = xmlGetProp(block_node, "name");
 	assert(block_name);
 	position = g_hash_table_lookup(block_positions, block_name);
 	assert(position->z < pb_top_type->capacity);
 	pb = &grid[position->x][position->y].pb[position->z];
 
+	/* init pb instance struct members */
 	assert(pb->type == &pb_top_type->base);
 	pb->name = block_name;
 	mode_name = xmlGetProp(block_node, "mode");
@@ -327,7 +344,7 @@ void parse_top_level_block(t_block **grid, GQueue *block_queue, GHashTable *bloc
 		pb->mode = NULL;
 	}
 	pb->parent = NULL;
-	init_pb_pins(pb);
+	alloc_and_init_pb_pins(pb);
 
 	/* parsing children non-recursively */
 	queue = g_queue_new();
@@ -344,11 +361,11 @@ void parse_top_level_block(t_block **grid, GQueue *block_queue, GHashTable *bloc
 		pair = g_queue_pop_tail(queue);
 
 		pb = pair->pb;
-		block_node = pair->block_node;
+		current_block_node = pair->block_node;
 
 		//printf("%s\n", pb->name);
 
-		child_block_node = find_next_element(block_node->children, "block");
+		child_block_node = find_next_element(current_block_node->children, "block");
 		/* we allocate and parse pb children only when BOTH the architecture and the netlist have children */
 		/* case of pb->mode && !child_block_node: LUT route through (tseng.net, name="ngfdn_3") */
 		if (pb->mode && child_block_node) {
@@ -372,13 +389,9 @@ void parse_top_level_block(t_block **grid, GQueue *block_queue, GHashTable *bloc
 		} else {
 			pb->children = NULL;
 		}
-
-		//parse_block_ports(block_node, pb, NULL);
 	}
 
 	g_queue_free(queue);
-
-	//parse_block_ports(block_node, &grid[position->x][position->y].pb[position->z], NULL);
 }
 
 //void init_grid(t_block **grid, int nx, int ny, s_pb_top_type *pb_top_types, int num_pb_top_types)
@@ -386,7 +399,7 @@ void parse_top_level_block(t_block **grid, GQueue *block_queue, GHashTable *bloc
 //
 //}
 
-void parse_netlist(const char *filename, t_block **grid, GHashTable *block_positions, s_pb_top_type *pb_top_types, int num_pb_top_types,
+void parse_netlist(const char *filename, s_block ***grid, int *nx, int *ny, GHashTable *block_positions, s_pb_top_type *pb_top_types, int num_pb_top_types,
 		int *num_blocks, GHashTable **external_nets)
 {
 	xmlDocPtr netlist;
@@ -401,6 +414,11 @@ void parse_netlist(const char *filename, t_block **grid, GHashTable *block_posit
 	check_element_name(root_node, "block");
 
 	*num_blocks = get_child_count(root_node, "block");
+
+	*nx = nint(sqrt(*num_blocks));
+	*ny = *nx;
+
+	alloc_and_init_grid(grid, *nx, *ny, pb_top_types, num_pb_top_types);
 
 	/* iterate through all the top level blocks */
 	count = 0;

@@ -10,6 +10,7 @@
 
 #include <glib.h>
 
-void parse_placement(const char *filename, s_pb_top_type *pb_top_types, int num_pb_top_types, int *nx, int *ny, t_block ***grid, GHashTable **block_positions);
+void parse_placement(const char *filename, int *nx, int *ny, GHashTable **block_positions);
+void alloc_and_init_grid(s_block ***grid, int nx, int ny, s_pb_top_type *pb_top_types, int num_pb_top_types);
 
 #endif /* PLACEMENT_H_ */

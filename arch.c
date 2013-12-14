@@ -17,13 +17,13 @@ const char *port_type_name[] = { "input", "output", "clock" };
 
 void parse_pb_type(xmlNodePtr pb_type_node, s_pb_type *pb_type, s_pb_type *parent);
 
-void print_tabs(FILE *fp, int num_tabs)
-{
-	int i;
-	for (i = 0; i < num_tabs; i++) {
-		fprintf(fp, "\t");
-	}
-}
+//void print_tabs(FILE *fp, int num_tabs)
+//{
+//	int i;
+//	for (i = 0; i < num_tabs; i++) {
+//		fprintf(fp, "\t");
+//	}
+//}
 
 void dump_pb(s_pb_type *pb_type, int level)
 {
@@ -233,27 +233,25 @@ void parse_pb_type(xmlNodePtr pb_type_node, s_pb_type *pb_type, s_pb_type *paren
 	/* this is a primitive, no more children */
 	if (pb_type->blif_model) {
 		parse_primitive(pb_type_node, pb_type);
-
-		return;
-	}
-
-	pb_type->num_modes = get_child_count(pb_type_node, "mode");
-	if (pb_type->num_modes > 0) {
-		pb_type->modes = malloc(sizeof(s_mode) * pb_type->num_modes);
-
-		mode_node = find_next_element(pb_type_node->children, "mode");
-		count = 0;
-		while (mode_node) {
-			parse_mode(mode_node, &pb_type->modes[count], pb_type);
-			count++;
-			mode_node = find_next_element(mode_node->next, "mode");
-		}
-		assert(count == pb_type->num_modes);
 	} else {
-		pb_type->num_modes = 1;
-		pb_type->modes = malloc(sizeof(s_mode) * pb_type->num_modes);
+		pb_type->num_modes = get_child_count(pb_type_node, "mode");
+		if (pb_type->num_modes > 0) {
+			pb_type->modes = malloc(sizeof(s_mode) * pb_type->num_modes);
 
-		parse_mode(pb_type_node, &pb_type->modes[0], pb_type);
+			mode_node = find_next_element(pb_type_node->children, "mode");
+			count = 0;
+			while (mode_node) {
+				parse_mode(mode_node, &pb_type->modes[count], pb_type);
+				count++;
+				mode_node = find_next_element(mode_node->next, "mode");
+			}
+			assert(count == pb_type->num_modes);
+		} else {
+			pb_type->num_modes = 1;
+			pb_type->modes = malloc(sizeof(s_mode) * pb_type->num_modes);
+
+			parse_mode(pb_type_node, &pb_type->modes[0], pb_type);
+		}
 	}
 }
 

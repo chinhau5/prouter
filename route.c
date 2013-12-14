@@ -49,10 +49,10 @@ float get_expected_cost(s_routing_node *current_node, s_routing_node *sink_node)
 	s_wire *wire;
 	float cost;
 
-	assert(sink_node->type == IPIN);
+	assert(sink_node->type == INPUT_PIN);
 
 	switch (current_node->type) {
-	case IPIN:
+	case INPUT_PIN:
 		if (current_node == sink_node) {
 			cost = 0;
 		} else {
@@ -64,7 +64,7 @@ float get_expected_cost(s_routing_node *current_node, s_routing_node *sink_node)
 		cost = abs((wire->base.x + wire->type->relative_x) - sink_node->x) + abs((wire->base.y + wire->type->relative_y) - sink_node->y) +
 				abs(wire->type->relative_x) + abs(wire->type->relative_y);
 		break;
-	case OPIN:
+	case OUTPUT_PIN:
 		cost = abs(current_node->x - sink_node->x) + abs(current_node->y - sink_node->y);
 		break;
 	default:
@@ -81,16 +81,16 @@ float get_cost(s_routing_node *current, s_routing_node *neighbour)
 	s_wire *wire;
 
 	switch (current->type) {
-	case IPIN:
+	case INPUT_PIN:
 		assert(0); /* we would have finished dijkstra by this time */
 		break;
 	case WIRE:
-		assert(neighbour->type == WIRE || neighbour->type == IPIN);
+		assert(neighbour->type == WIRE || neighbour->type == INPUT_PIN);
 		cost = abs(current->x - neighbour->x) + abs(current->y - neighbour->y); /* manhattan distance */
 		wire = current;
 		assert(cost == abs(wire->type->relative_x) + abs(wire->type->relative_y));
 		break;
-	case OPIN:
+	case OUTPUT_PIN:
 		assert(neighbour->type == WIRE);
 		cost = 0;
 		break;
@@ -153,8 +153,8 @@ void route_net(s_net *net, int num_routing_nodes, int *node_usage, int *first_le
 			route_details[node->id].expected_cost = /*route_details[node->id].min_cost + */get_expected_cost(node, sink);
 #ifdef VERBOSE
 			if (node->type == WIRE) { printf("rt: "); print_wire(node, route_details[node->id].min_cost, route_details[node->id].expected_cost); printf("\n"); }
-			else if (node->type == IPIN) { printf("rt: IPIN id=%d [%d,%d]\n", node->id, node->x, node->y); }
-			else if (node->type == OPIN) { printf("rt: OPIN id=%d [%d,%d] cost=%2f e_cost=%2f\n", node->id, node->x, node->y, route_details[node->id].min_cost, route_details[node->id].expected_cost); }
+			else if (node->type == INPUT_PIN) { printf("rt: IPIN id=%d [%d,%d]\n", node->id, node->x, node->y); }
+			else if (node->type == OUTPUT_PIN) { printf("rt: OPIN id=%d [%d,%d] cost=%2f e_cost=%2f\n", node->id, node->x, node->y, route_details[node->id].min_cost, route_details[node->id].expected_cost); }
 #endif
 			heap_push(&heap, route_details[node->id].expected_cost, node);
 		}
@@ -169,8 +169,8 @@ void route_net(s_net *net, int num_routing_nodes, int *node_usage, int *first_le
 			/* DEBUG */
 #ifdef VERBOSE
 			if (current->type == WIRE) { printf("current: "); print_wire(current, route_details[current->id].min_cost, route_details[current->id].expected_cost); printf("\n"); }
-			else if (current->type == IPIN) { printf("current: IPIN id=%d [%d,%d]\n", current->id, current->x, current->y); }
-			else if (current->type == OPIN) { printf("current: OPIN id=%d [%d,%d] cost=%f e_cost=%f\n", current->id, current->x, current->y, route_details[current->id].min_cost, route_details[current->id].expected_cost); }
+			else if (current->type == INPUT_PIN) { printf("current: IPIN id=%d [%d,%d]\n", current->id, current->x, current->y); }
+			else if (current->type == OUTPUT_PIN) { printf("current: OPIN id=%d [%d,%d] cost=%f e_cost=%f\n", current->id, current->x, current->y, route_details[current->id].min_cost, route_details[current->id].expected_cost); }
 #endif
 			if (current == sink) {
 				found = true;
@@ -183,10 +183,10 @@ void route_net(s_net *net, int num_routing_nodes, int *node_usage, int *first_le
 #if 0
 					if (node->type == WIRE) {
 						printf("trace: "); print_wire(node, route_details[node->id].min_cost, route_details[node->id].expected_cost); printf("\n");
-					} else if (node->type == IPIN) {
+					} else if (node->type == INPUT_PIN) {
 						printf("trace: sink id=%d cost: %f e_cost: %f [%d,%d]\n", node->id, route_details[node->id].min_cost, route_details[node->id].expected_cost, node->x, node->y);
 					} else {
-						assert(node->type == OPIN);
+						assert(node->type == OUTPUT_PIN);
 						printf("trace: source id=%d cost: %f e_cost: %f [%d,%d]\n", node->id, route_details[node->id].min_cost, route_details[node->id].expected_cost, node->x, node->y);
 					}
 #endif
@@ -204,7 +204,7 @@ void route_net(s_net *net, int num_routing_nodes, int *node_usage, int *first_le
 
 #ifdef VERBOSE
 					if (neighbour->type == WIRE) { printf("\t neighbour: "); print_wire(neighbour, cost, expected_cost); printf(" "); }
-					else if (neighbour->type == IPIN) { printf("\t neighbour: IPIN id=%d [%d,%d] cost=%f e_cost=%f ", neighbour->id, neighbour->x, neighbour->y, cost, expected_cost); }
+					else if (neighbour->type == INPUT_PIN) { printf("\t neighbour: IPIN id=%d [%d,%d] cost=%f e_cost=%f ", neighbour->id, neighbour->x, neighbour->y, cost, expected_cost); }
 					printf("min_cost: %f ", route_details[neighbour->id].min_cost);
 #endif
 
@@ -249,13 +249,13 @@ void route_net(s_net *net, int num_routing_nodes, int *node_usage, int *first_le
 		/* important to allow nodes in the current route tree to be reused */
 #ifdef PRINT_ROUTE_TREE
 		if (node->type == WIRE) { printf("rt: "); print_wire(node, route_details[node->id].min_cost, route_details[node->id].expected_cost); printf(" "); }
-		else if (node->type == IPIN) { printf("rt: IPIN id=%d [%d,%d] ", node->id, node->x, node->y); }
-		else if (node->type == OPIN) { printf("rt: OPIN id=%d [%d,%d] cost=%f e_cost=%f ", node->id, node->x, node->y, route_details[node->id].min_cost, route_details[node->id].expected_cost); }
+		else if (node->type == INPUT_PIN) { printf("rt: IPIN id=%d [%d,%d] ", node->id, node->x, node->y); }
+		else if (node->type == OUTPUT_PIN) { printf("rt: OPIN id=%d [%d,%d] cost=%f e_cost=%f ", node->id, node->x, node->y, route_details[node->id].min_cost, route_details[node->id].expected_cost); }
 
 		if (route_details[node->id].prev_node) {
 			printf("prev_node id=%d", route_details[node->id].prev_node->id);
 		} else {
-			assert(node->type == OPIN);
+			assert(node->type == OUTPUT_PIN);
 		}
 		printf("\n");
 #endif
@@ -374,7 +374,7 @@ void reserve_route_resource(GList **node_requests, int *node_usage, int num_rout
 				if (requester->node->type == WIRE) {
 					printf("requester: WIRE id=%d type=%d [%d,%d]->[%d,%d]\n", requester->node->id, requester->node->type, requester->node->x, requester->node->y, requested_node->x, requested_node->y);
 				} else {
-					assert(requester->node->type == OPIN);
+					assert(requester->node->type == OUTPUT_PIN);
 					printf("requester: OPIN id=%d type=%d [%d,%d]\n", requester->node->id, requester->node->type, requester->node->x, requester->node->y);
 				}
 

@@ -13,7 +13,7 @@
 #include "placement.h"
 #include "pb_graph.h"
 
-void alloc_and_init_grid(t_block ***grid, int nx, int ny, s_pb_top_type *pb_top_types, int num_pb_top_types)
+void alloc_and_init_grid(s_block ***grid, int nx, int ny, s_pb_top_type *pb_top_types, int num_pb_top_types)
 {
 	int x, y;
 	int i;
@@ -21,9 +21,9 @@ void alloc_and_init_grid(t_block ***grid, int nx, int ny, s_pb_top_type *pb_top_
 	s_pb_top_type *clb_type;
 	s_pb *pb;
 
-	*grid = malloc(sizeof(t_block *) * nx);
+	*grid = malloc(sizeof(s_block *) * nx);
 	for (x = 0; x < nx; x++) {
-		(*grid)[x] = calloc(ny, sizeof(t_block));
+		(*grid)[x] = calloc(ny, sizeof(s_block));
 	}
 
 	io_type = NULL;
@@ -51,7 +51,7 @@ void alloc_and_init_grid(t_block ***grid, int nx, int ny, s_pb_top_type *pb_top_
 					pb = &(*grid)[x][y].pb[i];
 					pb->type = &io_type->base;
 					pb->block = &(*grid)[x][y];
-					init_pb_pins(pb);
+					alloc_and_init_pb_pins(pb);
 				}
 				(*grid)[x][y].capacity = io_type->capacity;
 			} else {
@@ -60,7 +60,7 @@ void alloc_and_init_grid(t_block ***grid, int nx, int ny, s_pb_top_type *pb_top_
 					pb = &(*grid)[x][y].pb[i];
 					pb->type = &clb_type->base;
 					pb->block = &(*grid)[x][y];
-					init_pb_pins(pb);
+					alloc_and_init_pb_pins(pb);
 				}
 				(*grid)[x][y].capacity = clb_type->capacity;
 			}
@@ -68,7 +68,7 @@ void alloc_and_init_grid(t_block ***grid, int nx, int ny, s_pb_top_type *pb_top_
 	}
 }
 
-void parse_placement(const char *filename, s_pb_top_type *pb_top_types, int num_pb_top_types, int *nx, int *ny, t_block ***grid, GHashTable **block_positions)
+void parse_placement(const char *filename, int *nx, int *ny, GHashTable **block_positions)
 {
 	FILE *file;
 	char buffer[256];
@@ -86,8 +86,6 @@ void parse_placement(const char *filename, s_pb_top_type *pb_top_types, int num_
 	fscanf(file, "Array size : %d x %d logic blocks", nx, ny);
 	*nx += 2;
 	*ny += 2;
-
-	alloc_and_init_grid(grid, *ny, *ny, pb_top_types, num_pb_top_types);
 
 	fgets(buffer, sizeof(buffer), file);
 	fgets(buffer, sizeof(buffer), file);

@@ -213,7 +213,7 @@ void init_pb_pin_connections(s_pb *pb)
 }
 
 /* assume that pb->type and pb->mode has already been initialized by parse_block/parse_top_level_block */
-void init_pb_pins(s_pb *pb)
+void alloc_and_init_pb_pins(s_pb *pb)
 {
 	int i, j;
 	s_pb_type *pb_type;
@@ -237,7 +237,7 @@ void init_pb_pins(s_pb *pb)
 
 	for (i = 0; i < pb_type->num_input_ports; i++) {
 		for (j = 0; j < pb_type->input_ports[i].num_pins; j++) {
-			pb->input_pins[pb_type->input_ports[i].port_number][j].base.type = IPIN;
+			pb->input_pins[pb_type->input_ports[i].port_number][j].base.type = INPUT_PIN;
 			if (pb->block) {
 				pb->input_pins[pb_type->input_ports[i].port_number][j].base.x = pb->block->x;
 				pb->input_pins[pb_type->input_ports[i].port_number][j].base.y = pb->block->y;
@@ -255,7 +255,7 @@ void init_pb_pins(s_pb *pb)
 
 	for (i = 0; i < pb_type->num_output_ports; i++) {
 		for (j = 0; j < pb_type->output_ports[i].num_pins; j++) {
-			pb->output_pins[pb_type->output_ports[i].port_number][j].base.type = OPIN;
+			pb->output_pins[pb_type->output_ports[i].port_number][j].base.type = OUTPUT_PIN;
 			if (pb->block) {
 				pb->output_pins[pb_type->output_ports[i].port_number][j].base.x = pb->block->x;
 				pb->output_pins[pb_type->output_ports[i].port_number][j].base.y = pb->block->y;
