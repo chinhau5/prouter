@@ -13,13 +13,14 @@
 #include "placement.h"
 #include "pb_graph.h"
 
-void alloc_and_init_grid(s_block ***grid, int nx, int ny, s_pb_top_type *pb_top_types, int num_pb_top_types)
+void alloc_and_init_grid(s_block ***grid, int nx, int ny, s_pb_top_type *pb_top_types, int num_pb_top_types, s_pb *pbs, int num_pbs, GHashTable *block_positions)
 {
 	int x, y;
 	int i;
 	s_pb_top_type *io_type;
 	s_pb_top_type *clb_type;
 	s_pb *pb;
+	s_block_position *pos;
 
 	*grid = malloc(sizeof(s_block *) * nx);
 	for (x = 0; x < nx; x++) {
@@ -66,6 +67,14 @@ void alloc_and_init_grid(s_block ***grid, int nx, int ny, s_pb_top_type *pb_top_
 			}
 		}
 	}
+
+	assert(g_hash_table_size(block_positions) == num_pbs);
+	for (i = 0; i < num_pbs; i++) {
+		assert(g_hash_table_contains(block_positions, pbs[i].name));
+		pos = g_hash_table_lookup(block_positions, pbs[i].name);
+		assert(pos->x < nx && pos->y < ny && pos->z < (*grid)[pos->x][pos->y].capacity);
+		(*grid)[pos->x][pos->y].pb[pos->z] = pbs[i];
+	}
 }
 
 void parse_placement(const char *filename, int *nx, int *ny, GHashTable **block_positions)
@@ -84,8 +93,6 @@ void parse_placement(const char *filename, int *nx, int *ny, GHashTable **block_
 	fgets(buffer, sizeof(buffer), file);
 
 	fscanf(file, "Array size : %d x %d logic blocks", nx, ny);
-	*nx += 2;
-	*ny += 2;
 
 	fgets(buffer, sizeof(buffer), file);
 	fgets(buffer, sizeof(buffer), file);

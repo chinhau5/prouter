@@ -8,6 +8,7 @@
 #ifndef VPR_INTERFACE_H_
 #define VPR_INTERFACE_H_
 
+#include "vpr_types.h"
 #include "vpr/base/vpr_types.h"
 #include "OptionTokens.h"
 #include "ReadOptions.h"
@@ -21,6 +22,7 @@ void vpr_init(
 		t_timing_inf *Timing);
 
 void vpr_build_rr_graph(
+		s_block **vprx_grid,
 		int width_fac,
 		t_chan_width_dist chan_width_dist,
 		struct s_det_routing_arch det_routing_arch,

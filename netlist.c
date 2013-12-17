@@ -5,6 +5,7 @@
  *      Author: chinhau5
  */
 
+#include <math.h>
 #include <glib.h>
 #include <assert.h>
 #include <string.h>
@@ -289,7 +290,7 @@ s_pb *parse_block(s_pb **pbs, xmlNodePtr block_node, s_pb_type *pb_types, int nu
 	return pb;
 }
 
-void parse_top_level_block(s_block **grid, GQueue *block_queue, GHashTable *block_positions, xmlNodePtr block_node, s_pb_top_type *pb_top_types, int num_pb_top_types)
+void parse_top_level_block(s_pb *pb, GQueue *sub_blocks, xmlNodePtr block_node, s_pb_top_type *pb_top_types, int num_pb_top_types)
 {
 	int i;
 	char *instance_name_and_index;
@@ -300,7 +301,6 @@ void parse_top_level_block(s_block **grid, GQueue *block_queue, GHashTable *bloc
 	s_pb_top_type *pb_top_type;
 	char *block_name;
 	s_block_position *position;
-	s_pb *pb;
 	s_pb *child_pb;
 	char *mode_name;
 	int mode_index;
@@ -325,17 +325,14 @@ void parse_top_level_block(s_block **grid, GQueue *block_queue, GHashTable *bloc
 		}
 	}
 	assert(pb_top_type);
+	pb->type = pb_top_type;
 
 	/* find the pb instance pointer */
 	block_name = xmlGetProp(block_node, "name");
 	assert(block_name);
-	position = g_hash_table_lookup(block_positions, block_name);
-	assert(position->z < pb_top_type->capacity);
-	pb = &grid[position->x][position->y].pb[position->z];
+	pb->name = block_name;
 
 	/* init pb instance struct members */
-	assert(pb->type == &pb_top_type->base);
-	pb->name = block_name;
 	mode_name = xmlGetProp(block_node, "mode");
 	if (mode_name) {
 		pb->mode = get_pb_type_mode(mode_name, pb->type, &mode_index);
@@ -343,7 +340,14 @@ void parse_top_level_block(s_block **grid, GQueue *block_queue, GHashTable *bloc
 	} else {
 		pb->mode = NULL;
 	}
+
+	/* initialized later after the grid is generated (after placement) */
+	pb->block = NULL;
+
+	/* parent */
 	pb->parent = NULL;
+
+	/* pins */
 	alloc_and_init_pb_pins(pb);
 
 	/* parsing children non-recursively */
@@ -354,16 +358,13 @@ void parse_top_level_block(s_block **grid, GQueue *block_queue, GHashTable *bloc
 	pair->block_node = block_node;
 
 	g_queue_push_head(queue, pair);
-	g_queue_push_head(block_queue, pair);
+	g_queue_push_head(sub_blocks, pair);
 
-	//printf("HERE!!!\n");
 	while (!g_queue_is_empty(queue)) {
 		pair = g_queue_pop_tail(queue);
 
 		pb = pair->pb;
 		current_block_node = pair->block_node;
-
-		//printf("%s\n", pb->name);
 
 		child_block_node = find_next_element(current_block_node->children, "block");
 		/* we allocate and parse pb children only when BOTH the architecture and the netlist have children */
@@ -382,7 +383,7 @@ void parse_top_level_block(s_block **grid, GQueue *block_queue, GHashTable *bloc
 				pair->pb = child_pb;
 				pair->block_node = child_block_node;
 				g_queue_push_head(queue, pair);
-				g_queue_push_head(block_queue, pair);
+				g_queue_push_head(sub_blocks, pair);
 
 				child_block_node = find_next_element(child_block_node->next, "block");
 			}
@@ -399,8 +400,10 @@ void parse_top_level_block(s_block **grid, GQueue *block_queue, GHashTable *bloc
 //
 //}
 
-void parse_netlist(const char *filename, s_block ***grid, int *nx, int *ny, GHashTable *block_positions, s_pb_top_type *pb_top_types, int num_pb_top_types,
-		int *num_blocks, GHashTable **external_nets)
+void parse_netlist(
+		const char *filename, s_pb_top_type *pb_top_types, int num_pb_top_types, /* inputs */
+		s_pb **pbs, int *num_pbs,
+		GHashTable **external_nets)
 {
 	xmlDocPtr netlist;
 	xmlNodePtr root_node;
@@ -413,12 +416,8 @@ void parse_netlist(const char *filename, s_block ***grid, int *nx, int *ny, GHas
 	root_node = xmlDocGetRootElement(netlist);
 	check_element_name(root_node, "block");
 
-	*num_blocks = get_child_count(root_node, "block");
-
-	*nx = nint(sqrt(*num_blocks));
-	*ny = *nx;
-
-	alloc_and_init_grid(grid, *nx, *ny, pb_top_types, num_pb_top_types);
+	*num_pbs = get_child_count(root_node, "block");
+	*pbs = malloc(sizeof(s_pb) * *num_pbs);
 
 	/* iterate through all the top level blocks */
 	count = 0;
@@ -426,7 +425,7 @@ void parse_netlist(const char *filename, s_block ***grid, int *nx, int *ny, GHas
 	*external_nets = g_hash_table_new(g_str_hash, g_str_equal);
 	block_node = find_next_element(root_node->children, "block");
 	while (block_node) {
-		parse_top_level_block(grid, block_queue, block_positions, block_node, pb_top_types, num_pb_top_types);
+		parse_top_level_block(&((*pbs)[count]), block_queue, block_node, pb_top_types, num_pb_top_types);
 
 		while (!g_queue_is_empty(block_queue)) {
 			pair = g_queue_pop_tail(block_queue); /* block queue must be traversed in breadth first order */
@@ -437,5 +436,5 @@ void parse_netlist(const char *filename, s_block ***grid, int *nx, int *ny, GHas
 		block_node = find_next_element(block_node->next, "block");
 		count++;
 	}
-	assert(count == *num_blocks);
+	assert(count == *num_pbs);
 }

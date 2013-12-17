@@ -273,44 +273,38 @@ void parse_pb_top_type(xmlNodePtr pb_type_node, s_pb_top_type *pb_top_type)
 	}
 }
 
-s_pb_top_type *parse_complex_block_list(xmlNodePtr complexblocklist_node, int *num_pb_top_types)
+void parse_complex_block_list(xmlNodePtr complexblocklist_node, s_pb_top_type **pb_top_types, int *num_pb_top_types)
 {
 	xmlNodePtr current;
 	int count;
-	s_pb_top_type *pb_top_types;
 
 	check_element_name(complexblocklist_node, "complexblocklist");
 
 	*num_pb_top_types = get_child_count(complexblocklist_node, "pb_type");
-	pb_top_types = malloc(sizeof(s_pb_top_type) * *num_pb_top_types);
+	*pb_top_types = malloc(sizeof(s_pb_top_type) * *num_pb_top_types);
 
 	current = find_next_element(complexblocklist_node->children, "pb_type");
 	count = 0;
 	while (current) {
-		parse_pb_top_type(current, &pb_top_types[count]);
+		parse_pb_top_type(current, &((*pb_top_types)[count]));
 		current = find_next_element(current->next, "pb_type");
 		count++;
 	}
 	assert(count == *num_pb_top_types);
-
-	return pb_top_types;
 }
 
-s_pb_top_type *parse_arch(const char *filename, int *num_pb_top_types)
+void parse_arch(const char *filename, s_pb_top_type **pb_top_types, int *num_pb_top_types)
 {
 	xmlDocPtr doc;
 	xmlNodePtr complexblocklist_node;
 	xmlNodePtr root_node;
-	s_pb_top_type *pb_top_types;
 
 	doc = xmlParseFile(filename);
 	root_node = xmlDocGetRootElement(doc);
 	check_element_name(root_node, "architecture");
 
 	complexblocklist_node = find_next_element(root_node->children, "complexblocklist");
-	pb_top_types = parse_complex_block_list(complexblocklist_node, num_pb_top_types);
+	parse_complex_block_list(complexblocklist_node, pb_top_types, num_pb_top_types);
 
-	//dump_pb_top_types(pb_top_types, *num_pb_top_types);
-
-	return pb_top_types;
+	dump_pb_top_types(*pb_top_types, *num_pb_top_types);
 }

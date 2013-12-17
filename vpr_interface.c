@@ -70,7 +70,39 @@ void vpr_init(
 	fflush(stdout);
 }
 
-void translate_rr_graph()
+s_pb_graph_pin *vpr_pin_to_vprx_pin(s_block *block, int sub_block, int node_block_pin)
+{
+	int i, j;
+	s_pb_type *pb_type;
+	s_pb_graph_pin *pin;
+	int offset;
+
+	assert(sub_block < block->capacity);
+	pb_type = block->pb[sub_block].type;
+	offset = -1;
+	/* order of ports is important (input -> output -> clock) */
+	for (i = 0; i < pb_type->num_input_ports && offset != node_block_pin; i++) {
+		for (j = 0; j < pb_type->input_ports[i].num_pins && offset != node_block_pin; j++) {
+			pin = &block->pb[sub_block].input_pins[i][j];
+			offset++;
+		}
+	}
+	for (i = 0; i < pb_type->num_output_ports && offset != node_block_pin; i++) {
+		for (j = 0; j < pb_type->output_ports[i].num_pins && offset != node_block_pin; j++) {
+			pin = &block->pb[sub_block].output_pins[i][j];
+			offset++;
+		}
+	}
+	for (i = 0; i < pb_type->num_clock_ports && offset != node_block_pin; i++) {
+		for (j = 0; j < pb_type->clock_ports[i].num_pins && offset != node_block_pin; j++) {
+			pin = &block->pb[sub_block].clock_pins[i][j];
+			offset++;
+		}
+	}
+	return pin;
+}
+
+void translate_rr_graph(s_block **grid)
 {
 	int i;
 	for (i = 0; i < num_rr_nodes; i++) {
@@ -78,12 +110,16 @@ void translate_rr_graph()
 		case IPIN:
 			break;
 		case OPIN:
+			printf("%s\n", rr_node[i].pb_graph_pin->port->name);
 			break;
 		case CHANX:
 			break;
 		case CHANY:
 			break;
-
+		case SOURCE:
+		case SINK:
+			/* not handling them */
+			break;
 		default:
 			assert(0);
 			break;
@@ -91,7 +127,39 @@ void translate_rr_graph()
 	}
 }
 
+void test(s_block **vprx_grid)
+{
+	int i, j;
+	int blk;
+	s_pb_graph_pin *pin;
+
+	for (i = 0; i < num_nets; i++) {
+		for (j = 0; j <= clb_net[i].num_sinks; j++) {
+			blk = clb_net[i].node_block[j];
+
+			pin = vpr_pin_to_vprx_pin(&vprx_grid[block[blk].x][block[blk].y], block[blk].z, clb_net[i].node_block_pin[j]);
+			printf("%s.%s[%d] ", pin->pb->name, pin->port->name, pin->pin_number);
+			fflush(stdout);
+		}
+		printf("\n");
+//		blk = clb_net[i].node_block[0];
+//		if (!strcmp(block[blk].type->name, "io")/*block[blk].x == 0*/) {
+//			assert(!strcmp(block[blk].type->name, "io"));
+//			assert(clb_net[i].node_block_pin[0] < 24);
+//			printf("pin[%d,%d,%d,%s,%s]: %d\n", block[blk].x, block[blk].y, block[blk].z, block[blk].name, block[blk].type->name, clb_net[i].node_block_pin[0]);
+//		}
+	}
+}
+
+void test2()
+{
+	int i, j;
+	int base;
+	for (i = 0; i < )
+}
+
 void vpr_build_rr_graph(
+		s_block **vprx_grid,
 		int width_fac,
 		t_chan_width_dist chan_width_dist,
 		struct s_det_routing_arch det_routing_arch,
@@ -120,5 +188,7 @@ void vpr_build_rr_graph(
 		   det_routing_arch.wire_to_ipin_switch,
 		   router_opts.base_cost_type, &warnings);
 
-	translate_rr_graph();
+	test(vprx_grid);
+
+	translate_rr_graph(vprx_grid);
 }

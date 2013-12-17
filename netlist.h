@@ -8,7 +8,9 @@
 #ifndef NETLIST_H_
 #define NETLIST_H_
 
-void parse_netlist(const char *filename, s_block ***grid, int *nx, int *ny, GHashTable *block_positions, s_pb_top_type *pb_top_types, int num_pb_top_types,
-		int *num_blocks, GHashTable **external_nets);
+void parse_netlist(
+		const char *filename, s_pb_top_type *pb_top_types, int num_pb_top_types, /* inputs */
+		s_pb **pbs, int *num_pbs,
+		GHashTable **external_nets);
 
 #endif /* NETLIST_H_ */

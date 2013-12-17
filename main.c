@@ -22,6 +22,7 @@
 #include "route.h"
 #include "quadtree.h"
 #include "vpr_interface.h"
+#include "vpr/base/globals.h"
 
 int main(int argc, char **argv)
 {
@@ -38,7 +39,6 @@ int main(int argc, char **argv)
 	s_switch_box *sb;
 	s_heap heap;
 	s_heap_item item;
-	int num_blocks;
 	char netlist_filename[256];
 	char placement_filename[256];
 
@@ -71,11 +71,12 @@ int main(int argc, char **argv)
 	GList **node_requests;
 	GHashTable *id_to_node;
 	s_net **grant;
-	int num_nets;
 	GHashTable *congested_nets;
 	GList *node_request_item;
 	s_node_requester *requester;
 	int num_large_nets;
+	s_pb *pbs;
+	int num_pbs;
 
 	t_options options;
 	t_arch Arch;
@@ -127,7 +128,7 @@ int main(int argc, char **argv)
 
 	num_wire_types = sizeof(wire_types)/sizeof(s_wire_type);
 
-	pb_top_types = parse_arch(argv[1], &num_pb_top_types);
+	parse_arch(argv[1], &pb_top_types, &num_pb_top_types);
 
 	sprintf(placement_filename, "%s.place", argv[2]);
 	sprintf(netlist_filename, "%s.net", argv[2]);
@@ -138,14 +139,22 @@ int main(int argc, char **argv)
 //			}
 //		}
 //	}
-	parse_netlist(netlist_filename, &grid, &nx, &ny, block_positions, pb_top_types, num_pb_top_types, &num_blocks, &external_nets);
+	parse_netlist(netlist_filename, pb_top_types, num_pb_top_types, &pbs, &num_pbs, &external_nets);
+
+	read_netlist(netlist_filename, &Arch, &num_blocks, &block, &num_nets, &clb_net);
+	/* This is done so that all blocks have subblocks and can be treated the same */
+	check_netlist();
 
 	/* have to read the netlist before calling this before it requires num_block to be initialized */
 	InitArch(Arch);
 
 	parse_placement(placement_filename, &nx, &ny, &block_positions);
 
-	vpr_build_rr_graph(50, Arch.Chans, RoutingArch, RouterOpts, Segments, Timing);
+	read_place(placement_filename, netlist_filename, argv[1], nx, ny, num_blocks, block);
+
+	alloc_and_init_grid(&grid, nx+2, ny+2, pb_top_types, num_pb_top_types, pbs, num_pbs, block_positions);
+
+	vpr_build_rr_graph(grid, 34, Arch.Chans, RoutingArch, RouterOpts, Segments, Timing);
 
 	return 0;
 
