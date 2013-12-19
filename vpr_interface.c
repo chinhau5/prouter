@@ -110,7 +110,7 @@ void translate_rr_graph(s_block **grid)
 		case IPIN:
 			break;
 		case OPIN:
-			printf("%s\n", rr_node[i].pb_graph_pin->port->name);
+			//printf("%s\n", rr_node[i].pb_graph_pin->port->name);
 			break;
 		case CHANX:
 			break;
@@ -153,9 +153,13 @@ void test(s_block **vprx_grid)
 
 void test2()
 {
-	int i, j;
+	int x, y;
 	int base;
-	for (i = 0; i < )
+	for (x = 0; x < nx+2; x++) {
+		for (y = 0; y < ny+2; y++) {
+			base = get_rr_node_index(x, y, IPIN, 0, rr_node_indices);
+		}
+	}
 }
 
 void vpr_build_rr_graph(

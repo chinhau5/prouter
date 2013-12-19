@@ -52,6 +52,7 @@ int main(int argc, char **argv)
 	int x, y;
 	GHashTable *external_nets;
 	s_net *net;
+	s_net **nets;
 	GSList *litem;
 	s_pb_graph_pin *sink_pin;
 	FILE *dot_file;
@@ -145,6 +146,8 @@ int main(int argc, char **argv)
 	/* This is done so that all blocks have subblocks and can be treated the same */
 	check_netlist();
 
+	assert(num_nets == g_hash_table_size(external_nets));
+
 	/* have to read the netlist before calling this before it requires num_block to be initialized */
 	InitArch(Arch);
 
@@ -153,6 +156,27 @@ int main(int argc, char **argv)
 	read_place(placement_filename, netlist_filename, argv[1], nx, ny, num_blocks, block);
 
 	alloc_and_init_grid(&grid, nx+2, ny+2, pb_top_types, num_pb_top_types, pbs, num_pbs, block_positions);
+
+	nets = malloc(sizeof(s_net *) * num_nets);
+
+	i = 0;
+	g_hash_table_iter_init(&iter, external_nets);
+	while (g_hash_table_iter_next (&iter, &key, &value)) {
+		net = value;
+		init_net_bounding_box(net);
+		nets[i++] = net;
+	}
+
+	for (i = 0; i < num_nets-1; i++) {
+		printf("net %d %s [l=%d,r=%d,b=%d,t=%d] intersects:\n", i, nets[i]->name,
+				nets[i]->bounding_box.left, nets[i]->bounding_box.right, nets[i]->bounding_box.bottom, nets[i]->bounding_box.top);
+		for (j = i+1; j < num_nets; j++) {
+			if (aabb_intersect(&(nets[i]->bounding_box), &(nets[j]->bounding_box))) {
+				printf("\t net %s [l=%d,r=%d,b=%d,t=%d]\n", nets[j]->name,
+						nets[j]->bounding_box.left, nets[j]->bounding_box.right, nets[j]->bounding_box.bottom, nets[j]->bounding_box.top);
+			}
+		}
+	}
 
 	vpr_build_rr_graph(grid, 34, Arch.Chans, RoutingArch, RouterOpts, Segments, Timing);
 

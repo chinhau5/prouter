@@ -48,21 +48,21 @@ void alloc_and_init_grid(s_block ***grid, int nx, int ny, s_pb_top_type *pb_top_
 
 			if (x == 0 || x == nx-1 || y == 0 || y == ny-1) { /* IO tiles */
 				(*grid)[x][y].pb = calloc(io_type->capacity, sizeof(s_pb));
-				for (i = 0; i < io_type->capacity; i++) {
-					pb = &(*grid)[x][y].pb[i];
-					pb->type = &io_type->base;
-					pb->block = &(*grid)[x][y];
-					alloc_and_init_pb_pins(pb);
-				}
+//				for (i = 0; i < io_type->capacity; i++) {
+//					pb = &(*grid)[x][y].pb[i];
+//					pb->type = &io_type->base;
+//					pb->block = &(*grid)[x][y];
+//					alloc_and_init_pb_pins(pb);
+//				}
 				(*grid)[x][y].capacity = io_type->capacity;
 			} else {
 				(*grid)[x][y].pb = calloc(clb_type->capacity, sizeof(s_pb));
-				for (i = 0; i < clb_type->capacity; i++) {
-					pb = &(*grid)[x][y].pb[i];
-					pb->type = &clb_type->base;
-					pb->block = &(*grid)[x][y];
-					alloc_and_init_pb_pins(pb);
-				}
+//				for (i = 0; i < clb_type->capacity; i++) {
+//					pb = &(*grid)[x][y].pb[i];
+//					pb->type = &clb_type->base;
+//					pb->block = &(*grid)[x][y];
+//					alloc_and_init_pb_pins(pb);
+//				}
 				(*grid)[x][y].capacity = clb_type->capacity;
 			}
 		}
@@ -74,6 +74,7 @@ void alloc_and_init_grid(s_block ***grid, int nx, int ny, s_pb_top_type *pb_top_
 		pos = g_hash_table_lookup(block_positions, pbs[i].name);
 		assert(pos->x < nx && pos->y < ny && pos->z < (*grid)[pos->x][pos->y].capacity);
 		(*grid)[pos->x][pos->y].pb[pos->z] = pbs[i];
+		pbs[i].block = &(*grid)[pos->x][pos->y];
 	}
 }
 

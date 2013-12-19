@@ -104,6 +104,7 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *external_net
 						net = g_hash_table_lookup(external_nets, token->data);
 					} else {
 						net = malloc(sizeof(s_net));
+						net->name = strdup(token->data);
 						net->num_sinks = 0;
 						net->source_pin = NULL;
 						net->sink_pins = NULL;
@@ -187,6 +188,7 @@ void parse_block_ports(xmlNodePtr block_node, s_pb *pb, GHashTable *external_net
 							net = g_hash_table_lookup(external_nets, token->data);
 						} else {
 							net = malloc(sizeof(s_net));
+							net->name = strdup(token->data);
 							net->source_pin = NULL;
 							net->sink_pins = NULL;
 							net->num_sinks = 0;

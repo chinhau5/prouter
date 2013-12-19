@@ -203,6 +203,7 @@ typedef struct _s_block_position {
 } s_block_position;
 
 typedef struct _s_net {
+	char *name;
 	struct _s_pb_graph_pin *source_pin;
 	GSList *sink_pins;
 	int num_sinks;

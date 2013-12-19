@@ -307,33 +307,33 @@ void init_net_bounding_box(s_net *net)
 	right = top = 0;
 	left = bottom = INT_MAX;
 
-	if (net->source_pin->base.x < left) {
-		left = net->source_pin->base.x;
+	if (net->source_pin->pb->block->x < left) {
+		left = net->source_pin->pb->block->x;
 	}
-	if (net->source_pin->base.x > right) {
-		right = net->source_pin->base.x;
+	if (net->source_pin->pb->block->x > right) {
+		right = net->source_pin->pb->block->x;
 	}
-	if (net->source_pin->base.y < bottom) {
-		bottom = net->source_pin->base.y;
+	if (net->source_pin->pb->block->y < bottom) {
+		bottom = net->source_pin->pb->block->y;
 	}
-	if (net->source_pin->base.y > top) {
-		top = net->source_pin->base.y;
+	if (net->source_pin->pb->block->y > top) {
+		top = net->source_pin->pb->block->y;
 	}
 
 	sink_item = net->sink_pins;
 	while (sink_item) {
 		sink = sink_item->data;
-		if (sink->base.x < left) {
-			left = sink->base.x;
+		if (sink->pb->block->x < left) {
+			left = sink->pb->block->x;
 		}
-		if (sink->base.x > right) {
-			right = sink->base.x;
+		if (sink->pb->block->x > right) {
+			right = sink->pb->block->x;
 		}
-		if (sink->base.y < bottom) {
-			bottom = sink->base.y;
+		if (sink->pb->block->y < bottom) {
+			bottom = sink->pb->block->y;
 		}
-		if (sink->base.y > top) {
-			top = sink->base.y;
+		if (sink->pb->block->y > top) {
+			top = sink->pb->block->y;
 		}
 		sink_item = sink_item->next;
 	}
